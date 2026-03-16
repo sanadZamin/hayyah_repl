@@ -67,11 +67,9 @@ export default defineConfig({
       deny: ["**/.*"],
     },
     proxy: {
-      "/hayyah-proxy": {
-        target: "https://hayyah.me",
-        changeOrigin: true,
-        secure: true,
-        rewrite: (path) => path.replace(/^\/hayyah-proxy/, ""),
+      "/api": {
+        target: "http://localhost:8080",
+        changeOrigin: false,
       },
     },
   },
