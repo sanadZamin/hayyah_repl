@@ -75,50 +75,50 @@
   --elevate-1: rgba(0,0,0, .03);
   --elevate-2: rgba(0,0,0, .08);
 
-  --background: 30 33% 98%;
-  --foreground: 20 14% 10%;
+  --background: 210 30% 98%;
+  --foreground: 220 14% 10%;
 
-  --border: 30 15% 90%;
-  --input: 30 15% 85%;
-  --ring: 24 85% 50%;
+  --border: 214 20% 90%;
+  --input: 214 20% 85%;
+  --ring: 211 100% 49%;
 
   --card: 0 0% 100%;
-  --card-foreground: 20 14% 10%;
-  --card-border: 30 15% 90%;
+  --card-foreground: 220 14% 10%;
+  --card-border: 214 20% 90%;
 
-  --sidebar: 30 20% 96%;
-  --sidebar-foreground: 20 14% 20%;
-  --sidebar-border: 30 15% 88%;
-  --sidebar-primary: 24 85% 50%;
+  --sidebar: 214 30% 97%;
+  --sidebar-foreground: 220 14% 20%;
+  --sidebar-border: 214 20% 88%;
+  --sidebar-primary: 211 100% 49%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 30 25% 92%;
-  --sidebar-accent-foreground: 20 14% 10%;
-  --sidebar-ring: 24 85% 50%;
+  --sidebar-accent: 211 40% 92%;
+  --sidebar-accent-foreground: 220 14% 10%;
+  --sidebar-ring: 211 100% 49%;
 
   --popover: 0 0% 100%;
-  --popover-foreground: 20 14% 10%;
-  --popover-border: 30 15% 90%;
+  --popover-foreground: 220 14% 10%;
+  --popover-border: 214 20% 90%;
 
-  --primary: 24 85% 50%; /* Hayyah Warm Orange/Terracotta */
+  --primary: 211 100% 49%; /* Hayyah Blue */
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 30 25% 92%;
-  --secondary-foreground: 20 14% 15%;
+  --secondary: 214 30% 92%;
+  --secondary-foreground: 220 14% 15%;
 
-  --muted: 30 20% 94%;
-  --muted-foreground: 25 10% 45%;
+  --muted: 214 25% 94%;
+  --muted-foreground: 215 10% 45%;
 
-  --accent: 35 40% 90%;
-  --accent-foreground: 20 14% 15%;
+  --accent: 211 50% 90%;
+  --accent-foreground: 220 14% 15%;
 
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
 
-  --chart-1: 24 85% 50%; /* Primary */
+  --chart-1: 211 100% 49%; /* Primary Blue */
   --chart-2: 45 93% 47%; /* Amber */
   --chart-3: 160 84% 39%; /* Teal */
   --chart-4: 280 65% 60%; /* Purple */
-  --chart-5: 200 90% 40%; /* Blue */
+  --chart-5: 24 85% 50%; /* Orange */
 
   --app-font-sans: 'Inter', sans-serif;
   --app-font-display: 'Plus Jakarta Sans', sans-serif;
@@ -155,45 +155,45 @@
 
   --border: 20 10% 16%;
   --input: 20 10% 20%;
-  --ring: 24 85% 50%;
+  --ring: 211 100% 49%;
 
-  --card: 20 10% 11%;
-  --card-foreground: 30 20% 96%;
-  --card-border: 20 10% 16%;
+  --card: 220 10% 11%;
+  --card-foreground: 214 20% 96%;
+  --card-border: 220 10% 16%;
 
-  --sidebar: 20 10% 10%;
-  --sidebar-foreground: 30 20% 85%;
-  --sidebar-border: 20 10% 14%;
-  --sidebar-primary: 24 85% 50%;
+  --sidebar: 220 10% 10%;
+  --sidebar-foreground: 214 20% 85%;
+  --sidebar-border: 220 10% 14%;
+  --sidebar-primary: 211 100% 49%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 20 10% 15%;
-  --sidebar-accent-foreground: 30 20% 96%;
-  --sidebar-ring: 24 85% 50%;
+  --sidebar-accent: 220 10% 15%;
+  --sidebar-accent-foreground: 214 20% 96%;
+  --sidebar-ring: 211 100% 49%;
 
-  --popover: 20 10% 12%;
-  --popover-foreground: 30 20% 96%;
-  --popover-border: 20 10% 18%;
+  --popover: 220 10% 12%;
+  --popover-foreground: 214 20% 96%;
+  --popover-border: 220 10% 18%;
 
-  --primary: 24 85% 50%;
+  --primary: 211 100% 49%;
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 20 10% 16%;
-  --secondary-foreground: 30 20% 96%;
+  --secondary: 220 10% 16%;
+  --secondary-foreground: 214 20% 96%;
 
-  --muted: 20 10% 14%;
-  --muted-foreground: 30 10% 65%;
+  --muted: 220 10% 14%;
+  --muted-foreground: 214 10% 65%;
 
-  --accent: 24 30% 18%;
-  --accent-foreground: 30 20% 96%;
+  --accent: 211 30% 18%;
+  --accent-foreground: 214 20% 96%;
 
   --destructive: 0 62% 30%;
-  --destructive-foreground: 30 20% 96%;
+  --destructive-foreground: 214 20% 96%;
 
-  --chart-1: 24 85% 50%;
+  --chart-1: 211 100% 49%;
   --chart-2: 45 93% 47%;
   --chart-3: 160 84% 39%;
   --chart-4: 280 65% 60%;
-  --chart-5: 200 90% 40%;
+  --chart-5: 24 85% 50%;
 }
 
 @layer base {
