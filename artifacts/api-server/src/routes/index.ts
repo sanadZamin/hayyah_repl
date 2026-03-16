@@ -6,10 +6,12 @@ import techniciansRouter from "./technicians";
 import servicesRouter from "./services";
 import dashboardRouter from "./dashboard";
 import authRouter from "./auth";
+import tasksRouter from "./tasks";
 
 const router: IRouter = Router();
 
 router.use(authRouter);
+router.use(tasksRouter);
 router.use(healthRouter);
 router.use(customersRouter);
 router.use(bookingsRouter);

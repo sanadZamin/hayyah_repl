@@ -1,30 +1,59 @@
-import { useState } from "react";
-import { useBookings, useCreateBooking, useUpdateBooking } from "@/hooks/use-bookings";
-import { useCustomers } from "@/hooks/use-customers";
-import { useServices } from "@/hooks/use-services";
+import { useTasks, type Task } from "@/hooks/use-tasks";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Calendar as CalendarIcon, Loader2, MapPin, Wrench } from "lucide-react";
+import { Calendar as CalendarIcon, Loader2, AlertCircle, ClipboardList } from "lucide-react";
 import { format } from "date-fns";
-import { UpdateBookingStatus } from "@workspace/api-client-react";
+import { useState, useMemo } from "react";
+
+const STATUS_LABELS: Record<string, string> = {
+  NEW:         "New",
+  PENDING:     "Pending",
+  CONFIRMED:   "Confirmed",
+  IN_PROGRESS: "In Progress",
+  COMPLETED:   "Completed",
+  CANCELLED:   "Cancelled",
+};
+
+function getStatusColor(status: string) {
+  switch (status) {
+    case "NEW":         return "bg-sky-100 text-sky-800 dark:bg-sky-500/20 dark:text-sky-400";
+    case "PENDING":     return "bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-400";
+    case "CONFIRMED":   return "bg-blue-100 text-blue-800 dark:bg-blue-500/20 dark:text-blue-400";
+    case "IN_PROGRESS": return "bg-purple-100 text-purple-800 dark:bg-purple-500/20 dark:text-purple-400";
+    case "COMPLETED":   return "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-400";
+    case "CANCELLED":   return "bg-slate-100 text-slate-800 dark:bg-slate-500/20 dark:text-slate-400";
+    default:            return "bg-muted text-muted-foreground";
+  }
+}
+
+function formatTaskDate(ms: number) {
+  if (!ms || ms <= 0) return "—";
+  try {
+    return format(new Date(ms), "MMM d, yyyy · h:mm a");
+  } catch {
+    return "—";
+  }
+}
 
 export default function Bookings() {
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  
-  const { data: bookings, isLoading } = useBookings({ 
-    status: statusFilter !== "all" ? statusFilter : undefined 
-  });
+  const { data: tasks, isLoading, isError, error, refetch } = useTasks();
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [search, setSearch]             = useState("");
 
-  const updateMutation = useUpdateBooking();
-
-  const handleStatusChange = (id: number, newStatus: string) => {
-    updateMutation.mutate({ id, data: { status: newStatus as UpdateBookingStatus } });
-  };
+  const filtered = useMemo(() => {
+    if (!tasks) return [];
+    return tasks.filter((t) => {
+      const matchStatus = statusFilter === "all" || t.orderStatus === statusFilter;
+      const q = search.toLowerCase();
+      const matchSearch =
+        !q ||
+        t.title.toLowerCase().includes(q) ||
+        t.description?.toLowerCase().includes(q);
+      return matchStatus && matchSearch;
+    });
+  }, [tasks, statusFilter, search]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -33,89 +62,113 @@ export default function Bookings() {
           <h1 className="text-3xl font-display font-bold text-foreground">Bookings</h1>
           <p className="text-muted-foreground mt-1">Manage scheduled jobs and appointments.</p>
         </div>
-        <AddBookingDialog />
+        {tasks && (
+          <div className="text-sm text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-lg">
+            {tasks.length} total task{tasks.length !== 1 ? "s" : ""}
+          </div>
+        )}
       </div>
 
       <Card className="border-border/50 shadow-sm rounded-2xl overflow-hidden">
-        <div className="p-4 border-b border-border/30 bg-card flex flex-col sm:flex-row gap-4 items-center justify-between">
-           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full sm:w-[220px] rounded-xl border-border/50 bg-background">
+        {/* Filters */}
+        <div className="p-4 border-b border-border/30 bg-card flex flex-col sm:flex-row gap-3 items-center">
+          <Input
+            placeholder="Search title or description…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="sm:max-w-xs rounded-xl border-border/50 bg-background"
+          />
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-full sm:w-[200px] rounded-xl border-border/50 bg-background">
               <SelectValue placeholder="Filter by status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Bookings</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="confirmed">Confirmed</SelectItem>
-              <SelectItem value="in_progress">In Progress</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
-              <SelectItem value="cancelled">Cancelled</SelectItem>
+              <SelectItem value="all">All Statuses</SelectItem>
+              {Object.entries(STATUS_LABELS).map(([val, label]) => (
+                <SelectItem key={val} value={val}>{label}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
 
         <CardContent className="p-0">
-          {isLoading ? (
+          {/* Loading */}
+          {isLoading && (
             <div className="p-12 flex justify-center">
               <Loader2 className="h-8 w-8 animate-spin text-primary/50" />
             </div>
-          ) : bookings?.length === 0 ? (
-            <div className="p-12 text-center text-muted-foreground flex flex-col items-center">
+          )}
+
+          {/* Error */}
+          {isError && (
+            <div className="p-10 flex flex-col items-center text-center gap-3">
+              <div className="h-12 w-12 rounded-full bg-destructive/10 flex items-center justify-center">
+                <AlertCircle className="h-6 w-6 text-destructive" />
+              </div>
+              <p className="font-medium text-foreground">Failed to load bookings</p>
+              <p className="text-sm text-muted-foreground max-w-xs">{error?.message}</p>
+              <button
+                onClick={() => refetch()}
+                className="text-sm text-primary hover:underline font-medium mt-1"
+              >
+                Try again
+              </button>
+            </div>
+          )}
+
+          {/* Empty */}
+          {!isLoading && !isError && filtered.length === 0 && (
+            <div className="p-12 flex flex-col items-center text-center">
               <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4">
                 <CalendarIcon className="h-6 w-6 opacity-50" />
               </div>
-              <p>No bookings found.</p>
+              <p className="text-muted-foreground">No bookings found.</p>
             </div>
-          ) : (
+          )}
+
+          {/* Table */}
+          {!isLoading && !isError && filtered.length > 0 && (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader className="bg-muted/30">
                   <TableRow className="hover:bg-transparent border-border/30">
-                    <TableHead className="font-semibold text-foreground/80 py-4">Job Details</TableHead>
-                    <TableHead className="font-semibold text-foreground/80">Schedule</TableHead>
-                    <TableHead className="font-semibold text-foreground/80">Price</TableHead>
-                    <TableHead className="font-semibold text-foreground/80 text-right w-[180px]">Status</TableHead>
+                    <TableHead className="font-semibold text-foreground/80 py-4 pl-6">Task</TableHead>
+                    <TableHead className="font-semibold text-foreground/80">Scheduled</TableHead>
+                    <TableHead className="font-semibold text-foreground/80">Created</TableHead>
+                    <TableHead className="font-semibold text-foreground/80 pr-6">Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {bookings?.map((booking) => (
-                    <TableRow key={booking.id} className="hover:bg-muted/20 transition-colors border-border/30">
-                      <TableCell className="py-4">
-                        <div className="font-medium text-foreground">{booking.customerName}</div>
-                        <div className="text-sm font-medium text-primary flex items-center mt-1">
-                          <Wrench className="h-3 w-3 mr-1" />
-                          {booking.serviceName}
-                        </div>
-                        <div className="text-sm text-muted-foreground mt-1 flex items-start">
-                          <MapPin className="h-3.5 w-3.5 mr-1 mt-0.5 shrink-0" />
-                          <span className="line-clamp-1">{booking.address}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="font-medium">{format(new Date(booking.scheduledAt), "MMM d, yyyy")}</div>
-                        <div className="text-sm text-muted-foreground">{format(new Date(booking.scheduledAt), "h:mm a")}</div>
-                        {booking.technicianName && (
-                          <div className="text-xs font-medium text-muted-foreground bg-muted inline-flex px-2 py-0.5 rounded mt-1">
-                            {booking.technicianName}
+                  {filtered.map((task: Task) => (
+                    <TableRow key={task.id} className="hover:bg-muted/20 transition-colors border-border/30">
+                      <TableCell className="py-4 pl-6">
+                        <div className="flex items-start gap-3">
+                          <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <ClipboardList className="h-4 w-4 text-primary" />
                           </div>
-                        )}
+                          <div>
+                            <div className="font-medium text-foreground">{task.title}</div>
+                            {task.description && (
+                              <div className="text-sm text-muted-foreground mt-0.5 line-clamp-1 max-w-xs">
+                                {task.description}
+                              </div>
+                            )}
+                            <div className="text-xs text-muted-foreground/60 mt-1 font-mono">
+                              {task.id.slice(0, 8)}…
+                            </div>
+                          </div>
+                        </div>
                       </TableCell>
-                      <TableCell className="font-semibold">${booking.price}</TableCell>
-                      <TableCell className="text-right">
-                         <Select 
-                            value={booking.status} 
-                            onValueChange={(v) => handleStatusChange(booking.id, v)}
-                         >
-                            <SelectTrigger className={`h-8 rounded-lg text-xs font-medium border-0 focus:ring-1 focus:ring-offset-0 ${getStatusColor(booking.status)}`}>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="pending">Pending</SelectItem>
-                              <SelectItem value="confirmed">Confirmed</SelectItem>
-                              <SelectItem value="in_progress">In Progress</SelectItem>
-                              <SelectItem value="completed">Completed</SelectItem>
-                              <SelectItem value="cancelled">Cancelled</SelectItem>
-                            </SelectContent>
-                          </Select>
+                      <TableCell className="text-sm">
+                        {formatTaskDate(task.taskDateTime)}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {formatTaskDate(task.created_at)}
+                      </TableCell>
+                      <TableCell className="pr-6">
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold ${getStatusColor(task.orderStatus)}`}>
+                          {STATUS_LABELS[task.orderStatus] ?? task.orderStatus}
+                        </span>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -126,158 +179,5 @@ export default function Bookings() {
         </CardContent>
       </Card>
     </div>
-  );
-}
-
-function getStatusColor(status: string) {
-  switch(status) {
-    case 'pending': return 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-400';
-    case 'confirmed': return 'bg-blue-100 text-blue-800 dark:bg-blue-500/20 dark:text-blue-400';
-    case 'in_progress': return 'bg-purple-100 text-purple-800 dark:bg-purple-500/20 dark:text-purple-400';
-    case 'completed': return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-400';
-    case 'cancelled': return 'bg-slate-100 text-slate-800 dark:bg-slate-500/20 dark:text-slate-400';
-    default: return 'bg-muted text-muted-foreground';
-  }
-}
-
-function AddBookingDialog() {
-  const [open, setOpen] = useState(false);
-  
-  const { data: customers } = useCustomers();
-  const { data: services } = useServices();
-  
-  const [formData, setFormData] = useState({ 
-    customerId: "", 
-    serviceId: "", 
-    scheduledAt: "", 
-    address: "", 
-    price: "",
-    notes: ""
-  });
-  
-  const createMutation = useCreateBooking();
-
-  const handleServiceSelect = (val: string) => {
-    const s = services?.find(s => s.id.toString() === val);
-    setFormData({
-      ...formData, 
-      serviceId: val,
-      price: s ? s.basePrice.toString() : ""
-    });
-  };
-
-  const handleCustomerSelect = (val: string) => {
-    const c = customers?.find(c => c.id.toString() === val);
-    setFormData({
-      ...formData, 
-      customerId: val,
-      address: c ? c.address : formData.address
-    });
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    createMutation.mutate(
-      { 
-        data: {
-          customerId: parseInt(formData.customerId),
-          serviceId: parseInt(formData.serviceId),
-          scheduledAt: new Date(formData.scheduledAt).toISOString(),
-          address: formData.address,
-          price: parseFloat(formData.price),
-          notes: formData.notes
-        } 
-      },
-      { onSuccess: () => setOpen(false) }
-    );
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button className="rounded-xl font-semibold shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 transition-all">
-          <Plus className="mr-2 h-4 w-4" />
-          New Booking
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[500px] rounded-2xl p-0 overflow-hidden border-border/50">
-        <DialogHeader className="px-6 py-5 bg-muted/30 border-b border-border/30">
-          <DialogTitle className="font-display text-xl">Create Booking</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-foreground/80">Customer</Label>
-                <Select value={formData.customerId} onValueChange={handleCustomerSelect} required>
-                  <SelectTrigger className="rounded-xl border-border/50">
-                    <SelectValue placeholder="Select..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {customers?.map(c => (
-                      <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-foreground/80">Service</Label>
-                <Select value={formData.serviceId} onValueChange={handleServiceSelect} required>
-                  <SelectTrigger className="rounded-xl border-border/50">
-                    <SelectValue placeholder="Select..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {services?.map(s => (
-                      <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-               <div className="space-y-2">
-                <Label className="text-foreground/80">Date & Time</Label>
-                <Input 
-                  type="datetime-local" 
-                  required 
-                  value={formData.scheduledAt} 
-                  onChange={e => setFormData({...formData, scheduledAt: e.target.value})} 
-                  className="rounded-xl border-border/50" 
-                />
-              </div>
-               <div className="space-y-2">
-                <Label className="text-foreground/80">Price ($)</Label>
-                <Input 
-                  type="number" 
-                  step="0.01" 
-                  required 
-                  value={formData.price} 
-                  onChange={e => setFormData({...formData, price: e.target.value})} 
-                  className="rounded-xl border-border/50" 
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-foreground/80">Service Address</Label>
-              <Input required value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} className="rounded-xl border-border/50" />
-            </div>
-
-             <div className="space-y-2">
-              <Label className="text-foreground/80">Notes</Label>
-              <Input value={formData.notes} onChange={e => setFormData({...formData, notes: e.target.value})} className="rounded-xl border-border/50" />
-            </div>
-          </div>
-          <div className="flex justify-end gap-3 pt-4 border-t border-border/30">
-            <Button type="button" variant="outline" onClick={() => setOpen(false)} className="rounded-xl border-border/50">Cancel</Button>
-            <Button type="submit" disabled={createMutation.isPending} className="rounded-xl font-semibold">
-              {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Create Booking
-            </Button>
-          </div>
-        </form>
-      </DialogContent>
-    </Dialog>
   );
 }
