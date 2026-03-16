@@ -26,9 +26,7 @@ export function AppSidebar() {
     <Sidebar className="border-r border-sidebar-border bg-sidebar/50 backdrop-blur-xl">
       <SidebarHeader className="p-4 pt-6">
         <div className="flex items-center gap-2 px-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm shadow-primary/20">
-            <span className="font-display font-bold text-lg">H</span>
-          </div>
+          <img src="/hayyah-logo.png" alt="Hayyah" className="h-8 w-8 object-contain" />
           <span className="font-display text-xl font-bold tracking-tight text-foreground">Hayyah</span>
         </div>
       </SidebarHeader>
