@@ -39,9 +39,8 @@ export default function Login() {
     setError("");
     if (!email || !password) { setError("Please fill in all fields."); return; }
     setLoading(true);
-    await new Promise(r => setTimeout(r, 600));
-    const success = login(email, password);
-    if (success) { navigate("/"); } else { setError("Invalid credentials. Please try again."); }
+    const result = await login(email, password);
+    if (result.success) { navigate("/"); } else { setError(result.error || "Invalid credentials."); }
     setLoading(false);
   };
 
@@ -144,12 +143,12 @@ export default function Login() {
           {/* Email / password form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">Email address</label>
+              <label className="block text-sm font-medium text-foreground mb-1.5">Username or email</label>
               <input
-                type="email"
+                type="text"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                placeholder="you@hayyah.me"
+                placeholder="Enter your username"
                 className="w-full px-3.5 py-2.5 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all"
                 autoComplete="email"
               />
