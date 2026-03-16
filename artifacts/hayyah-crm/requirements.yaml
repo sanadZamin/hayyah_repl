@@ -1,0 +1,9 @@
+packages:
+  "recharts": "For rendering dashboard metrics and booking status breakdown charts"
+  "date-fns": "For formatting scheduled dates and creation timestamps"
+  "clsx": "Utility for constructing className strings conditionally"
+  "tailwind-merge": "Utility to safely merge Tailwind CSS classes"
+
+notes:
+  - Using generated hooks from @workspace/api-client-react for data fetching.
+  - Creating wrapper hooks to automatically handle cache invalidation and toast notifications on mutations.

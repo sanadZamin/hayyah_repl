@@ -16,6 +16,16 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **API codegen**: Orval (from OpenAPI spec)
 - **Build**: esbuild (CJS bundle)
 
+## Artifacts
+
+### `artifacts/hayyah-crm` (`@workspace/hayyah-crm`)
+
+Hayyah CRM — a React + Vite frontend for a home services CRM app. Deployed at `/`.
+
+- Pages: Dashboard, Customers, Bookings, Technicians
+- Uses generated React Query hooks from `@workspace/api-client-react`
+- Sidebar navigation with Hayyah branding
+
 ## Structure
 
 ```text

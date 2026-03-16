@@ -1,22 +1,30 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Hayyah CRM API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: customers
+    description: Customer management
+  - name: bookings
+    description: Booking management
+  - name: technicians
+    description: Technician management
+  - name: services
+    description: Service catalog
+  - name: dashboard
+    description: Dashboard metrics
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +32,248 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /customers:
+    get:
+      operationId: listCustomers
+      tags: [customers]
+      summary: List all customers
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, inactive, lead]
+      responses:
+        "200":
+          description: List of customers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Customer"
+    post:
+      operationId: createCustomer
+      tags: [customers]
+      summary: Create a new customer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCustomer"
+      responses:
+        "201":
+          description: Created customer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+
+  /customers/{id}:
+    get:
+      operationId: getCustomer
+      tags: [customers]
+      summary: Get customer by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Customer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+    put:
+      operationId: updateCustomer
+      tags: [customers]
+      summary: Update a customer
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCustomer"
+      responses:
+        "200":
+          description: Updated customer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+    delete:
+      operationId: deleteCustomer
+      tags: [customers]
+      summary: Delete a customer
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /bookings:
+    get:
+      operationId: listBookings
+      tags: [bookings]
+      summary: List all bookings
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, confirmed, in_progress, completed, cancelled]
+        - name: date
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of bookings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Booking"
+    post:
+      operationId: createBooking
+      tags: [bookings]
+      summary: Create a new booking
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBooking"
+      responses:
+        "201":
+          description: Created booking
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+
+  /bookings/{id}:
+    get:
+      operationId: getBooking
+      tags: [bookings]
+      summary: Get booking by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Booking
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+    put:
+      operationId: updateBooking
+      tags: [bookings]
+      summary: Update a booking
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateBooking"
+      responses:
+        "200":
+          description: Updated booking
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+
+  /technicians:
+    get:
+      operationId: listTechnicians
+      tags: [technicians]
+      summary: List all technicians
+      responses:
+        "200":
+          description: List of technicians
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Technician"
+    post:
+      operationId: createTechnician
+      tags: [technicians]
+      summary: Create a new technician
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTechnician"
+      responses:
+        "201":
+          description: Created technician
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Technician"
+
+  /services:
+    get:
+      operationId: listServices
+      tags: [services]
+      summary: List all services
+      responses:
+        "200":
+          description: List of services
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Service"
+
+  /dashboard/metrics:
+    get:
+      operationId: getDashboardMetrics
+      tags: [dashboard]
+      summary: Get dashboard overview metrics
+      responses:
+        "200":
+          description: Dashboard metrics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardMetrics"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +284,258 @@ components:
       required:
         - status
 
+    Customer:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        address:
+          type: string
+        status:
+          type: string
+          enum: [active, inactive, lead]
+        totalBookings:
+          type: integer
+        totalSpent:
+          type: number
+        createdAt:
+          type: string
+      required:
+        - id
+        - name
+        - email
+        - phone
+        - address
+        - status
+        - totalBookings
+        - totalSpent
+        - createdAt
+
+    CreateCustomer:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        address:
+          type: string
+        status:
+          type: string
+          enum: [active, inactive, lead]
+      required:
+        - name
+        - email
+        - phone
+        - address
+
+    Booking:
+      type: object
+      properties:
+        id:
+          type: integer
+        customerId:
+          type: integer
+        customerName:
+          type: string
+        technicianId:
+          type: integer
+        technicianName:
+          type: string
+        serviceId:
+          type: integer
+        serviceName:
+          type: string
+        status:
+          type: string
+          enum: [pending, confirmed, in_progress, completed, cancelled]
+        scheduledAt:
+          type: string
+        address:
+          type: string
+        notes:
+          type: string
+        price:
+          type: number
+        createdAt:
+          type: string
+      required:
+        - id
+        - customerId
+        - customerName
+        - serviceId
+        - serviceName
+        - status
+        - scheduledAt
+        - address
+        - price
+        - createdAt
+
+    CreateBooking:
+      type: object
+      properties:
+        customerId:
+          type: integer
+        technicianId:
+          type: integer
+        serviceId:
+          type: integer
+        scheduledAt:
+          type: string
+        address:
+          type: string
+        notes:
+          type: string
+        price:
+          type: number
+      required:
+        - customerId
+        - serviceId
+        - scheduledAt
+        - address
+        - price
+
+    UpdateBooking:
+      type: object
+      properties:
+        technicianId:
+          type: integer
+        status:
+          type: string
+          enum: [pending, confirmed, in_progress, completed, cancelled]
+        scheduledAt:
+          type: string
+        notes:
+          type: string
+        price:
+          type: number
+
+    Technician:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        specialty:
+          type: string
+        status:
+          type: string
+          enum: [available, busy, off]
+        rating:
+          type: number
+        completedJobs:
+          type: integer
+        createdAt:
+          type: string
+      required:
+        - id
+        - name
+        - email
+        - phone
+        - specialty
+        - status
+        - rating
+        - completedJobs
+        - createdAt
+
+    CreateTechnician:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        specialty:
+          type: string
+      required:
+        - name
+        - email
+        - phone
+        - specialty
+
+    Service:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        basePrice:
+          type: number
+        durationMinutes:
+          type: integer
+      required:
+        - id
+        - name
+        - description
+        - category
+        - basePrice
+        - durationMinutes
+
+    DashboardMetrics:
+      type: object
+      properties:
+        totalCustomers:
+          type: integer
+        activeBookings:
+          type: integer
+        completedToday:
+          type: integer
+        revenue:
+          type: number
+        revenueGrowth:
+          type: number
+        newLeads:
+          type: integer
+        availableTechnicians:
+          type: integer
+        upcomingBookings:
+          type: array
+          items:
+            $ref: "#/components/schemas/Booking"
+        recentCustomers:
+          type: array
+          items:
+            $ref: "#/components/schemas/Customer"
+        bookingsByStatus:
+          type: array
+          items:
+            type: object
+            properties:
+              status:
+                type: string
+              count:
+                type: integer
+            required:
+              - status
+              - count
+      required:
+        - totalCustomers
+        - activeBookings
+        - completedToday
+        - revenue
+        - revenueGrowth
+        - newLeads
+        - availableTechnicians
+        - upcomingBookings
+        - recentCustomers
+        - bookingsByStatus
