@@ -21,13 +21,6 @@ function AppleIcon() {
   );
 }
 
-function XIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4 fill-current" xmlns="http://www.w3.org/2000/svg">
-      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-    </svg>
-  );
-}
 
 const BACKEND_URL = "https://hayyah.me";
 
@@ -138,18 +131,6 @@ export default function Login() {
                 ? <svg className="animate-spin h-4 w-4 text-muted-foreground" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 100 16v-4l-3 3 3 3v-4a8 8 0 01-8-8z"/></svg>
                 : <AppleIcon />}
               Continue with Apple
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleSocial("x", "/auth/twitter")}
-              disabled={!!socialLoading}
-              className="w-full flex items-center justify-center gap-2.5 py-2.5 px-4 rounded-lg border border-border bg-background hover:bg-muted/50 text-foreground text-sm font-medium transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {socialLoading === "x"
-                ? <svg className="animate-spin h-4 w-4 text-muted-foreground" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 100 16v-4l-3 3 3 3v-4a8 8 0 01-8-8z"/></svg>
-                : <XIcon />}
-              Continue with X
             </button>
           </div>
 
