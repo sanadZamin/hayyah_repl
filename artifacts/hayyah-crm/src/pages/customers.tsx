@@ -1,24 +1,45 @@
-import { useState } from "react";
-import { useCustomers, useCreateCustomer } from "@/hooks/use-customers";
+import { useState, useMemo } from "react";
+import { useUsers, type HayyahUser } from "@/hooks/use-users";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Plus, Loader2 } from "lucide-react";
-import { CreateCustomerStatus } from "@workspace/api-client-react";
+import { Search, Users, Loader2, AlertCircle, Mail, Phone } from "lucide-react";
+
+function getFullName(u: HayyahUser): string {
+  if (u.firstName || u.lastName) return `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim();
+  if (u.username) return u.username;
+  if (u.email) return u.email;
+  return u.id?.slice(0, 8) ?? "—";
+}
+
+function getInitials(name: string): string {
+  return name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
+}
+
+function getAvatarColor(id: string): string {
+  const colors = [
+    "bg-blue-500", "bg-violet-500", "bg-emerald-500",
+    "bg-amber-500", "bg-rose-500", "bg-cyan-500", "bg-indigo-500",
+  ];
+  const idx = id.charCodeAt(0) % colors.length;
+  return colors[idx];
+}
 
 export default function Customers() {
+  const { data: users, isLoading, isError, error, refetch } = useUsers(0, 100);
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState<string>("all");
-  
-  const { data: customers, isLoading } = useCustomers({ 
-    search: search || undefined, 
-    status: status !== "all" ? status : undefined 
-  });
+
+  const filtered = useMemo(() => {
+    if (!users) return [];
+    const q = search.toLowerCase();
+    if (!q) return users;
+    return users.filter((u) => {
+      const name = getFullName(u).toLowerCase();
+      const email = (u.email ?? "").toLowerCase();
+      const phone = (u.phone ?? u.phoneNumber ?? "").toLowerCase();
+      return name.includes(q) || email.includes(q) || phone.includes(q);
+    });
+  }, [users, search]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -27,75 +48,125 @@ export default function Customers() {
           <h1 className="text-3xl font-display font-bold text-foreground">Customers</h1>
           <p className="text-muted-foreground mt-1">Manage your client base and leads.</p>
         </div>
-        <AddCustomerDialog />
+        {users && (
+          <div className="text-sm text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-lg">
+            {users.length} customer{users.length !== 1 ? "s" : ""}
+          </div>
+        )}
       </div>
 
       <Card className="border-border/50 shadow-sm rounded-2xl overflow-hidden">
-        <div className="p-4 border-b border-border/30 bg-card flex flex-col sm:flex-row gap-4 items-center justify-between">
+        {/* Search bar */}
+        <div className="p-4 border-b border-border/30 bg-card flex items-center gap-4">
           <div className="relative w-full sm:max-w-xs">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input 
-              placeholder="Search customers..." 
+            <Input
+              placeholder="Search by name, email, phone…"
               className="pl-9 bg-background border-border/50 rounded-xl"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <Select value={status} onValueChange={setStatus}>
-            <SelectTrigger className="w-full sm:w-[180px] rounded-xl border-border/50 bg-background">
-              <SelectValue placeholder="Filter by status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Statuses</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="lead">Lead</SelectItem>
-              <SelectItem value="inactive">Inactive</SelectItem>
-            </SelectContent>
-          </Select>
         </div>
 
         <CardContent className="p-0">
-          {isLoading ? (
+          {/* Loading */}
+          {isLoading && (
             <div className="p-12 flex justify-center">
               <Loader2 className="h-8 w-8 animate-spin text-primary/50" />
             </div>
-          ) : customers?.length === 0 ? (
+          )}
+
+          {/* Error */}
+          {isError && (
+            <div className="p-10 flex flex-col items-center text-center gap-3">
+              <div className="h-12 w-12 rounded-full bg-destructive/10 flex items-center justify-center">
+                <AlertCircle className="h-6 w-6 text-destructive" />
+              </div>
+              <p className="font-medium text-foreground">Failed to load customers</p>
+              <p className="text-sm text-muted-foreground max-w-xs">{error?.message}</p>
+              <button onClick={() => refetch()} className="text-sm text-primary hover:underline font-medium mt-1">
+                Try again
+              </button>
+            </div>
+          )}
+
+          {/* Empty */}
+          {!isLoading && !isError && filtered.length === 0 && (
             <div className="p-12 text-center text-muted-foreground flex flex-col items-center">
               <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4">
                 <Users className="h-6 w-6 opacity-50" />
               </div>
-              <p>No customers found matching your criteria.</p>
+              <p>No customers found.</p>
             </div>
-          ) : (
+          )}
+
+          {/* Table */}
+          {!isLoading && !isError && filtered.length > 0 && (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader className="bg-muted/30">
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead className="font-semibold text-foreground/80 py-4">Name</TableHead>
+                  <TableRow className="hover:bg-transparent border-border/30">
+                    <TableHead className="font-semibold text-foreground/80 py-4 pl-6">Name</TableHead>
                     <TableHead className="font-semibold text-foreground/80">Contact</TableHead>
-                    <TableHead className="font-semibold text-foreground/80">Status</TableHead>
-                    <TableHead className="font-semibold text-foreground/80 text-right">Jobs</TableHead>
-                    <TableHead className="font-semibold text-foreground/80 text-right">Spent</TableHead>
+                    <TableHead className="font-semibold text-foreground/80">Username</TableHead>
+                    <TableHead className="font-semibold text-foreground/80 pr-6">Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {customers?.map((customer) => (
-                    <TableRow key={customer.id} className="hover:bg-muted/20 transition-colors cursor-pointer group">
-                      <TableCell className="py-4">
-                        <div className="font-medium text-foreground">{customer.name}</div>
-                        <div className="text-sm text-muted-foreground line-clamp-1 max-w-[200px]">{customer.address}</div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm">{customer.email}</div>
-                        <div className="text-sm text-muted-foreground">{customer.phone}</div>
-                      </TableCell>
-                      <TableCell>
-                        <StatusBadge status={customer.status} />
-                      </TableCell>
-                      <TableCell className="text-right font-medium">{customer.totalBookings}</TableCell>
-                      <TableCell className="text-right font-semibold">${customer.totalSpent.toLocaleString()}</TableCell>
-                    </TableRow>
-                  ))}
+                  {filtered.map((user) => {
+                    const name = getFullName(user);
+                    const initials = getInitials(name);
+                    const avatarColor = getAvatarColor(user.id ?? "0");
+                    const phone = user.phone ?? user.phoneNumber ?? null;
+                    const isEnabled = user.enabled !== false;
+
+                    return (
+                      <TableRow key={user.id} className="hover:bg-muted/20 transition-colors border-border/30">
+                        <TableCell className="py-4 pl-6">
+                          <div className="flex items-center gap-3">
+                            <div className={`h-9 w-9 rounded-full ${avatarColor} flex items-center justify-center text-white text-sm font-semibold flex-shrink-0`}>
+                              {initials}
+                            </div>
+                            <div>
+                              <div className="font-medium text-foreground">{name}</div>
+                              {user.address && (
+                                <div className="text-xs text-muted-foreground line-clamp-1 max-w-[180px] mt-0.5">
+                                  {user.address as string}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {user.email && (
+                            <div className="flex items-center gap-1.5 text-sm">
+                              <Mail className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                              <span className="text-foreground/80">{user.email}</span>
+                            </div>
+                          )}
+                          {phone && (
+                            <div className="flex items-center gap-1.5 text-sm mt-0.5">
+                              <Phone className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                              <span className="text-muted-foreground">{phone}</span>
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground font-mono">
+                          {user.username ?? "—"}
+                        </TableCell>
+                        <TableCell className="pr-6">
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold ${
+                            isEnabled
+                              ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-400"
+                              : "bg-slate-100 text-slate-700 dark:bg-slate-500/20 dark:text-slate-400"
+                          }`}>
+                            {isEnabled ? "Active" : "Inactive"}
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
@@ -103,95 +174,5 @@ export default function Customers() {
         </CardContent>
       </Card>
     </div>
-  );
-}
-
-// Just importing an icon since we used it in empty state
-import { Users } from "lucide-react";
-
-function StatusBadge({ status }: { status: string }) {
-  const styles: Record<string, string> = {
-    active: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/20",
-    lead: "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/20",
-    inactive: "bg-slate-500/15 text-slate-700 dark:text-slate-400 border-slate-500/20"
-  };
-  
-  return (
-    <Badge variant="outline" className={`capitalize font-medium px-2.5 py-0.5 rounded-lg ${styles[status] || styles.inactive}`}>
-      {status}
-    </Badge>
-  );
-}
-
-function AddCustomerDialog() {
-  const [open, setOpen] = useState(false);
-  const [formData, setFormData] = useState({ name: "", email: "", phone: "", address: "", status: "active" as CreateCustomerStatus });
-  
-  const createMutation = useCreateCustomer();
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    createMutation.mutate(
-      { data: formData },
-      { onSuccess: () => setOpen(false) }
-    );
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button className="rounded-xl font-semibold shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 transition-all">
-          <Plus className="mr-2 h-4 w-4" />
-          Add Customer
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px] rounded-2xl p-0 overflow-hidden border-border/50">
-        <DialogHeader className="px-6 py-5 bg-muted/30 border-b border-border/30">
-          <DialogTitle className="font-display text-xl">Add New Customer</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="name" className="text-foreground/80">Full Name</Label>
-              <Input id="name" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="rounded-xl border-border/50" />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-foreground/80">Email</Label>
-                <Input id="email" type="email" required value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="rounded-xl border-border/50" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="phone" className="text-foreground/80">Phone</Label>
-                <Input id="phone" required value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="rounded-xl border-border/50" />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="address" className="text-foreground/80">Address</Label>
-              <Input id="address" required value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} className="rounded-xl border-border/50" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="status" className="text-foreground/80">Status</Label>
-              <Select value={formData.status} onValueChange={(v: CreateCustomerStatus) => setFormData({...formData, status: v})}>
-                <SelectTrigger className="rounded-xl border-border/50">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="lead">Lead</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="flex justify-end gap-3 pt-4 border-t border-border/30">
-            <Button type="button" variant="outline" onClick={() => setOpen(false)} className="rounded-xl border-border/50">Cancel</Button>
-            <Button type="submit" disabled={createMutation.isPending} className="rounded-xl font-semibold">
-              {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Save Customer
-            </Button>
-          </div>
-        </form>
-      </DialogContent>
-    </Dialog>
   );
 }

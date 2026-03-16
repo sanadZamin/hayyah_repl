@@ -7,11 +7,13 @@ import servicesRouter from "./services";
 import dashboardRouter from "./dashboard";
 import authRouter from "./auth";
 import tasksRouter from "./tasks";
+import usersRouter from "./users";
 
 const router: IRouter = Router();
 
 router.use(authRouter);
 router.use(tasksRouter);
+router.use(usersRouter);
 router.use(healthRouter);
 router.use(customersRouter);
 router.use(bookingsRouter);
