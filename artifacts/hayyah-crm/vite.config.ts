@@ -66,6 +66,14 @@ export default defineConfig({
       strict: true,
       deny: ["**/.*"],
     },
+    proxy: {
+      "/hayyah-proxy": {
+        target: "https://hayyah.me",
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/hayyah-proxy/, ""),
+      },
+    },
   },
   preview: {
     port,
