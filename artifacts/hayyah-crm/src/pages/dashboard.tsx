@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { AppLayout } from "@/components/app-layout";
 import { useDashboardMetrics } from "@/hooks/use-dashboard";
 import { Users, ShoppingBag, DollarSign, Star, Plus, UserPlus, Wrench, ArrowUpRight, ArrowDownRight, MoreVertical } from "lucide-react";
 import { useLocation } from "wouter";
+import { NewOrderDialog } from "@/components/new-order-dialog";
 
 const STATUS_COLORS: Record<string, string> = {
   Completed:   "bg-[#53ffb0]/20 text-[#0d2270]",
@@ -30,6 +32,7 @@ const topProviders = [
 export default function Dashboard() {
   const { data } = useDashboardMetrics();
   const [, setLocation] = useLocation();
+  const [newOrderOpen, setNewOrderOpen] = useState(false);
 
   const stats = [
     { label: "Total Orders",         value: data ? String(data.activeBookings + data.completedToday) : "—", icon: ShoppingBag, trend: "+12%", positive: true },
@@ -54,7 +57,7 @@ export default function Dashboard() {
             <button onClick={() => setLocation("/providers")} className="flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-medium bg-white transition-colors hover:bg-gray-50" style={{ color: "var(--hayyah-navy)", borderColor: "#e2e8f0" }}>
               <Wrench className="w-4 h-4" /> Assign Provider
             </button>
-            <button onClick={() => setLocation("/orders")} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90" style={{ background: "var(--hayyah-blue)" }}>
+            <button onClick={() => setNewOrderOpen(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90" style={{ background: "var(--hayyah-blue)" }}>
               <Plus className="w-4 h-4" /> New Order
             </button>
           </div>
@@ -196,6 +199,8 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      <NewOrderDialog open={newOrderOpen} onClose={() => setNewOrderOpen(false)} />
     </AppLayout>
   );
 }
