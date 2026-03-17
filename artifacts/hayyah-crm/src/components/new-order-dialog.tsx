@@ -1,6 +1,16 @@
-import { useState } from "react";
-import { X, ChevronDown, Calendar, MapPin, Wrench, FileText, CheckCircle2, Loader2, AlertCircle, Home, BedDouble, Timer } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { X, ChevronDown, Calendar, MapPin, Wrench, FileText, CheckCircle2, Loader2, AlertCircle, Home, BedDouble, Timer, Search, User } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { useUsers, type HayyahUser } from "@/hooks/use-users";
+
+function getDisplayName(u: HayyahUser): string {
+  const full = `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim();
+  return full || u.username || u.email || u.id?.slice(0, 8) || "Unknown";
+}
+
+function getPhone(u: HayyahUser): string {
+  return u.phone ?? u.phoneNumber ?? "";
+}
 
 // Map UI service names → API serviceType values
 const SERVICE_TYPE_MAP: Record<string, string> = {
@@ -51,10 +61,53 @@ interface NewOrderDialogProps {
 
 export function NewOrderDialog({ open, onClose }: NewOrderDialogProps) {
   const { getToken } = useAuth();
+  const { data: allUsers } = useUsers(0, 100);
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // Customer search state
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [selectedCustomer, setSelectedCustomer] = useState<HayyahUser | null>(null);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  // Filter users by search query
+  const filteredUsers = customerSearch.trim().length > 0 && allUsers
+    ? allUsers.filter(u => {
+        const q = customerSearch.toLowerCase();
+        return (
+          getDisplayName(u).toLowerCase().includes(q) ||
+          (u.email ?? "").toLowerCase().includes(q) ||
+          (getPhone(u)).includes(q)
+        );
+      }).slice(0, 8)
+    : [];
+
+  const handleSelectCustomer = (user: HayyahUser) => {
+    setSelectedCustomer(user);
+    setCustomerSearch(getDisplayName(user));
+    setForm(prev => ({ ...prev, title: getDisplayName(user), customerPhone: getPhone(user) }));
+    setShowDropdown(false);
+  };
+
+  const handleClearCustomer = () => {
+    setSelectedCustomer(null);
+    setCustomerSearch("");
+    setForm(prev => ({ ...prev, title: "", customerPhone: "" }));
+  };
 
   const [form, setForm] = useState({
     title: "",
@@ -133,6 +186,7 @@ export function NewOrderDialog({ open, onClose }: NewOrderDialogProps) {
     onClose();
     setTimeout(() => {
       setStep(1); setSubmitted(false); setSubmitting(false); setSubmitError(null);
+      setCustomerSearch(""); setSelectedCustomer(null); setShowDropdown(false);
       setForm({ title: "", customerPhone: "", service: "", date: "", time: "", address: "", city: "", rooms: "2", duration: "3", specialRequest: "", neededMaterial: "no", description: "", paymentMethod: "cash" });
     }, 300);
   };
@@ -202,11 +256,84 @@ export function NewOrderDialog({ open, onClose }: NewOrderDialogProps) {
                   <Home className="w-4 h-4" style={{ color: "var(--hayyah-blue)" }} /> Customer Details
                 </h3>
                 <div className="space-y-3">
+                  {/* Customer search autocomplete */}
                   <div>
-                    <label className="text-xs font-semibold text-gray-600 block mb-1.5">Customer Name <span className="text-red-500">*</span></label>
-                    <input value={form.title} onChange={set("title")} placeholder="e.g. Ahmed Al-Farsi"
-                      className="w-full h-10 px-3.5 text-sm bg-gray-50 rounded-xl outline-none border border-transparent focus:border-[var(--hayyah-blue)] focus:bg-white transition-colors" />
+                    <label className="text-xs font-semibold text-gray-600 block mb-1.5">
+                      Customer Name <span className="text-red-500">*</span>
+                    </label>
+                    <div ref={searchRef} className="relative">
+                      {selectedCustomer ? (
+                        /* Selected state */
+                        <div className="flex items-center gap-3 h-10 px-3.5 bg-[rgba(0,136,251,0.06)] border border-[var(--hayyah-blue)] rounded-xl">
+                          <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
+                            style={{ background: "var(--hayyah-navy)" }}>
+                            {getDisplayName(selectedCustomer).split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+                          </div>
+                          <span className="flex-1 text-sm font-medium" style={{ color: "var(--hayyah-navy)" }}>
+                            {getDisplayName(selectedCustomer)}
+                          </span>
+                          <button type="button" onClick={handleClearCustomer} className="text-gray-400 hover:text-gray-600">
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        /* Search input */
+                        <div className="relative">
+                          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                          <input
+                            value={customerSearch}
+                            onChange={e => { setCustomerSearch(e.target.value); setShowDropdown(true); setForm(prev => ({ ...prev, title: e.target.value })); }}
+                            onFocus={() => setShowDropdown(true)}
+                            placeholder="Search by name, email or phone..."
+                            className="w-full h-10 pl-9 pr-3.5 text-sm bg-gray-50 rounded-xl outline-none border border-transparent focus:border-[var(--hayyah-blue)] focus:bg-white transition-colors"
+                          />
+                          {!allUsers && (
+                            <Loader2 className="w-4 h-4 absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 animate-spin" />
+                          )}
+                        </div>
+                      )}
+
+                      {/* Dropdown */}
+                      {showDropdown && !selectedCustomer && filteredUsers.length > 0 && (
+                        <div className="absolute top-full left-0 right-0 mt-1.5 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-50" style={{ maxHeight: 240 }}>
+                          <div className="overflow-y-auto" style={{ maxHeight: 240 }}>
+                            {filteredUsers.map(user => (
+                              <button
+                                key={user.id}
+                                type="button"
+                                onMouseDown={e => { e.preventDefault(); handleSelectCustomer(user); }}
+                                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors text-left border-b border-gray-50 last:border-0"
+                              >
+                                <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                                  style={{ background: "var(--hayyah-navy)" }}>
+                                  {getDisplayName(user).split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-semibold text-gray-900 truncate">{getDisplayName(user)}</p>
+                                  <p className="text-xs text-gray-500 truncate">{user.email ?? getPhone(user) ?? user.username ?? ""}</p>
+                                </div>
+                                {getPhone(user) && (
+                                  <span className="text-xs text-gray-400 flex-shrink-0">{getPhone(user)}</span>
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* No results hint */}
+                      {showDropdown && !selectedCustomer && customerSearch.trim().length > 1 && filteredUsers.length === 0 && allUsers && (
+                        <div className="absolute top-full left-0 right-0 mt-1.5 bg-white rounded-xl shadow-xl border border-gray-100 px-4 py-3 z-50">
+                          <div className="flex items-center gap-2 text-sm text-gray-500">
+                            <User className="w-4 h-4 text-gray-400" />
+                            No customer found — you can still proceed with this name.
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
+
+                  {/* Phone — auto-filled from selection, editable */}
                   <div>
                     <label className="text-xs font-semibold text-gray-600 block mb-1.5">Phone Number</label>
                     <input value={form.customerPhone} onChange={set("customerPhone")} placeholder="+966 5X XXX XXXX"
