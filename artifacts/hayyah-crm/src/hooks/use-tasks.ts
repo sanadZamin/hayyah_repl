@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { apiFetch } from "@/lib/api-fetch";
 
 export interface Task {
   id: string;
@@ -11,24 +12,8 @@ export interface Task {
   taskDateTime: number;
 }
 
-function getToken(): string | null {
-  try {
-    const stored = localStorage.getItem("hayyah_token");
-    if (!stored) return null;
-    return (JSON.parse(stored) as { access_token?: string }).access_token ?? null;
-  } catch {
-    return null;
-  }
-}
-
 async function fetchTasks(): Promise<Task[]> {
-  const token = getToken();
-  const res = await fetch("/api/tasks", {
-    headers: {
-      Authorization: token ? `Bearer ${token}` : "",
-      Accept: "application/json",
-    },
-  });
+  const res = await apiFetch("/api/tasks");
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error((err as Record<string, string>).error_description || `Failed to fetch tasks (${res.status})`);

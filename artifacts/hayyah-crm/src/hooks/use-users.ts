@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { apiFetch } from "@/lib/api-fetch";
 
 export interface HayyahUser {
   id: string;
@@ -14,24 +15,8 @@ export interface HayyahUser {
   [key: string]: unknown;
 }
 
-function getToken(): string | null {
-  try {
-    const stored = localStorage.getItem("hayyah_token");
-    if (!stored) return null;
-    return (JSON.parse(stored) as { access_token?: string }).access_token ?? null;
-  } catch {
-    return null;
-  }
-}
-
 async function fetchUsers(page = 0, size = 50): Promise<HayyahUser[]> {
-  const token = getToken();
-  const res = await fetch(`/api/users?page=${page}&size=${size}`, {
-    headers: {
-      Authorization: token ? `Bearer ${token}` : "",
-      Accept: "application/json",
-    },
-  });
+  const res = await apiFetch(`/api/users?page=${page}&size=${size}`);
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error((err as Record<string, string>).error_description || `Failed to fetch users (${res.status})`);
