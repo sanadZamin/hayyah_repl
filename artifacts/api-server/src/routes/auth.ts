@@ -7,7 +7,7 @@ const router = Router();
 
 const KEYCLOAK_TOKEN_URL = "https://hayyah.me/realms/hayyah/protocol/openid-connect/token";
 const CLIENT_ID = "web_client";
-const CLIENT_SECRET = "Vd8dMXpixGDMxFi0JJDoB0l3Pb7ThnLN";
+const CLIENT_SECRET = process.env.KEYCLOAK_CLIENT_SECRET ?? "";
 
 async function curlPost(body: string): Promise<{ status: number; json: unknown }> {
   const { stdout } = await execFileAsync("curl", [
