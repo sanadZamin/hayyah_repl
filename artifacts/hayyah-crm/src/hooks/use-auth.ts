@@ -5,7 +5,7 @@ const TOKEN_KEY = "hayyah_token";
 
 const TOKEN_URL = "/api/auth/token";
 const CLIENT_ID = "web_client";
-const CLIENT_SECRET = "Vd8dMXpixGDMxFi0JJDoB0l3Pb7ThnLN";
+const CLIENT_SECRET = import.meta.env.VITE_CLIENT_SECRET ?? "";
 
 export interface AuthUser {
   email: string;
