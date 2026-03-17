@@ -1,7 +1,5 @@
 const TOKEN_KEY = "hayyah_token";
 const AUTH_KEY = "hayyah_auth";
-const CLIENT_ID = "web_client";
-const CLIENT_SECRET = "Vd8dMXpixGDMxFi0JJDoB0l3Pb7ThnLN";
 
 interface TokenData {
   access_token: string;
