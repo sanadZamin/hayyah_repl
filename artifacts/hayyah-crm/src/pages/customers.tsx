@@ -118,7 +118,7 @@ export default function Customers() {
                 <table className="w-full text-sm">
                   <thead className="sticky top-0 bg-white z-10" style={{ boxShadow: "0 1px 0 #f3f4f6" }}>
                     <tr>
-                      {["Customer", "Contact Info", "Username", "Status", ""].map((h) => (
+                      {["Customer", "Email", "Mobile", "Username", "Status", ""].map((h) => (
                         <th key={h} className="font-semibold text-gray-500 py-4 px-4 text-left">{h}</th>
                       ))}
                     </tr>
@@ -146,17 +146,23 @@ export default function Customers() {
                             </div>
                           </td>
                           <td className="py-4 px-4">
-                            {user.email && (
+                            {user.email ? (
                               <div className="flex items-center gap-1.5 text-gray-700">
                                 <Mail className="w-3.5 h-3.5 text-gray-400" />
                                 <span className="text-xs">{user.email}</span>
                               </div>
+                            ) : (
+                              <span className="text-gray-300 text-xs">—</span>
                             )}
-                            {phone && (
-                              <div className="flex items-center gap-1.5 text-gray-500 mt-0.5">
+                          </td>
+                          <td className="py-4 px-4">
+                            {phone ? (
+                              <div className="flex items-center gap-1.5 text-gray-700">
                                 <Phone className="w-3.5 h-3.5 text-gray-400" />
-                                <span className="text-xs">{phone}</span>
+                                <span className="text-xs font-medium">{phone}</span>
                               </div>
+                            ) : (
+                              <span className="text-gray-300 text-xs">—</span>
                             )}
                           </td>
                           <td className="py-4 px-4 text-gray-500 font-mono text-xs">{user.username ?? "—"}</td>

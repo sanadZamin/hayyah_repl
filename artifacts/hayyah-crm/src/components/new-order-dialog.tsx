@@ -333,9 +333,16 @@ export function NewOrderDialog({ open, onClose }: NewOrderDialogProps) {
                     </div>
                   </div>
 
-                  {/* Phone — auto-filled from selection, editable */}
+                  {/* Mobile — auto-filled from selection, editable */}
                   <div>
-                    <label className="text-xs font-semibold text-gray-600 block mb-1.5">Phone Number</label>
+                    <label className="text-xs font-semibold text-gray-600 flex items-center gap-1.5 mb-1.5">
+                      Mobile Number
+                      {selectedCustomer && form.customerPhone && (
+                        <span className="text-[10px] font-normal px-1.5 py-0.5 rounded-full" style={{ background: "rgba(0,136,251,0.1)", color: "var(--hayyah-blue)" }}>
+                          auto-filled
+                        </span>
+                      )}
+                    </label>
                     <input value={form.customerPhone} onChange={set("customerPhone")} placeholder="+966 5X XXX XXXX"
                       className="w-full h-10 px-3.5 text-sm bg-gray-50 rounded-xl outline-none border border-transparent focus:border-[var(--hayyah-blue)] focus:bg-white transition-colors" />
                   </div>
