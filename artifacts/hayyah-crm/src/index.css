@@ -66,6 +66,14 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
+/* Hayyah Brand Variables */
+:root {
+  --hayyah-blue: #0088fb;
+  --hayyah-navy: #0d2270;
+  --hayyah-mint: #53ffb0;
+  --hayyah-blue-light: #e8f4ff;
+}
+
 /* LIGHT MODE - Warm, sophisticated SaaS theme */
 :root {
   --button-outline: rgba(0,0,0, .10);

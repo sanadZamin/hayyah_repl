@@ -2,15 +2,14 @@ import { Switch, Route, Router as WouterRouter, useLocation, Redirect } from "wo
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Layout } from "@/components/layout";
 import NotFound from "@/pages/not-found";
 import Login from "@/pages/login";
 import { useAuth } from "@/hooks/use-auth";
 
 import Dashboard from "@/pages/dashboard";
 import Customers from "@/pages/customers";
-import Bookings from "@/pages/bookings";
-import Technicians from "@/pages/technicians";
+import Orders from "@/pages/orders";
+import Providers from "@/pages/providers";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -39,15 +38,15 @@ function ProtectedRouter() {
   }
 
   return (
-    <Layout>
-      <Switch>
-        <Route path="/" component={Dashboard} />
-        <Route path="/customers" component={Customers} />
-        <Route path="/bookings" component={Bookings} />
-        <Route path="/technicians" component={Technicians} />
-        <Route component={NotFound} />
-      </Switch>
-    </Layout>
+    <Switch>
+      <Route path="/" component={Dashboard} />
+      <Route path="/customers" component={Customers} />
+      <Route path="/orders" component={Orders} />
+      <Route path="/bookings"><Redirect to="/orders" /></Route>
+      <Route path="/providers" component={Providers} />
+      <Route path="/technicians"><Redirect to="/providers" /></Route>
+      <Route component={NotFound} />
+    </Switch>
   );
 }
 
