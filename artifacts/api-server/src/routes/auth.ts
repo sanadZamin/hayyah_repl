@@ -46,10 +46,10 @@ router.post("/auth/refresh", async (req, res) => {
   }
   try {
     const body = new URLSearchParams({
-      grant_type: "refresh_token",
-      refresh_token,
       client_id: CLIENT_ID,
       client_secret: CLIENT_SECRET,
+      grant_type: "refresh_token",
+      refresh_token,
     }).toString();
     const { status, json } = await curlPost(body);
     console.log(`[auth] POST refresh → ${status}`);
