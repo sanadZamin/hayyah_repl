@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Eye, EyeOff, Home, ArrowRight, Shield, Sparkles, Loader2 } from "lucide-react";
+import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 
 export default function Login() {
@@ -9,6 +10,7 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
+  const [, setLocation] = useLocation();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -18,6 +20,8 @@ export default function Login() {
       const result = await login(username, password);
       if (result && !result.success) {
         setError(result.error ?? "Invalid credentials. Please try again.");
+      } else if (result?.success) {
+        setLocation("/");
       }
     } catch (err: any) {
       setError(err?.message ?? "Invalid credentials. Please try again.");
