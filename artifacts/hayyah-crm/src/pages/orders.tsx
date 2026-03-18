@@ -94,9 +94,9 @@ export default function Orders() {
     if (!tasks) return [];
     return tasks.map(t => ({
       id: t.id,
-      customer: t.customerName ?? t.title,
+      customer: t.customerName ?? "—",
       service: t.description ?? "Service",
-      taskType: t.taskType ?? "—",
+      taskType: t.title ?? "—",
       provider: "Unassigned",
       date: formatDate(t.taskDateTime),
       status: t.orderStatus ?? "NEW",
