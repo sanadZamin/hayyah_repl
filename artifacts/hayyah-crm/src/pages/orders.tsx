@@ -42,14 +42,14 @@ function formatDate(ms: number) {
 }
 
 const MOCK_ORDERS = [
-  { id: "#HY-2024-081", customer: "Ahmed Al-Farsi",  service: "Deep Cleaning",  provider: "Omar K.",    date: "Today, 10:30 AM", status: "Completed",   amount: "JOD 450", payment: "Paid" },
-  { id: "#HY-2024-082", customer: "Sarah Rahman",     service: "Pest Control",   provider: "Unassigned", date: "Today, 12:00 PM", status: "Pending",     amount: "JOD 250", payment: "Pending" },
-  { id: "#HY-2024-083", customer: "Mohammed N.",      service: "AC Maintenance", provider: "Ali M.",     date: "Today, 02:15 PM", status: "In Progress", amount: "JOD 300", payment: "Paid" },
-  { id: "#HY-2024-084", customer: "Fatima Saeed",     service: "Plumbing",       provider: "Hassan T.",  date: "Tomorrow, 09:00", status: "Pending",     amount: "JOD 150", payment: "Pending" },
-  { id: "#HY-2024-085", customer: "Khalid Basheer",   service: "Painting",       provider: "Ibrahim W.", date: "Oct 24, 10:00 AM",status: "Completed",   amount: "JOD 850", payment: "Paid" },
-  { id: "#HY-2024-086", customer: "Aisha Al-Dosari",  service: "Deep Cleaning",  provider: "Omar K.",    date: "Oct 24, 01:30 PM",status: "Cancelled",   amount: "JOD 450", payment: "Refunded" },
-  { id: "#HY-2024-087", customer: "Omar Tariq",       service: "AC Maintenance", provider: "Ali M.",     date: "Oct 23, 11:00 AM",status: "Completed",   amount: "JOD 300", payment: "Paid" },
-  { id: "#HY-2024-088", customer: "Leena Mansour",    service: "Pest Control",   provider: "Khaled S.",  date: "Oct 23, 03:45 PM",status: "Completed",   amount: "JOD 250", payment: "Paid" },
+  { id: "#HY-2024-081", customer: "Ahmed Al-Farsi",  taskType: "Cleaning",     service: "Deep Cleaning",  provider: "Omar K.",    date: "Today, 10:30 AM", status: "Completed",   amount: "JOD 450", payment: "Paid" },
+  { id: "#HY-2024-082", customer: "Sarah Rahman",     taskType: "Pest Control", service: "Pest Control",   provider: "Unassigned", date: "Today, 12:00 PM", status: "Pending",     amount: "JOD 250", payment: "Pending" },
+  { id: "#HY-2024-083", customer: "Mohammed N.",      taskType: "Maintenance",  service: "AC Maintenance", provider: "Ali M.",     date: "Today, 02:15 PM", status: "In Progress", amount: "JOD 300", payment: "Paid" },
+  { id: "#HY-2024-084", customer: "Fatima Saeed",     taskType: "Plumbing",     service: "Plumbing",       provider: "Hassan T.",  date: "Tomorrow, 09:00", status: "Pending",     amount: "JOD 150", payment: "Pending" },
+  { id: "#HY-2024-085", customer: "Khalid Basheer",   taskType: "Painting",     service: "Painting",       provider: "Ibrahim W.", date: "Oct 24, 10:00 AM",status: "Completed",   amount: "JOD 850", payment: "Paid" },
+  { id: "#HY-2024-086", customer: "Aisha Al-Dosari",  taskType: "Cleaning",     service: "Deep Cleaning",  provider: "Omar K.",    date: "Oct 24, 01:30 PM",status: "Cancelled",   amount: "JOD 450", payment: "Refunded" },
+  { id: "#HY-2024-087", customer: "Omar Tariq",       taskType: "Maintenance",  service: "AC Maintenance", provider: "Ali M.",     date: "Oct 23, 11:00 AM",status: "Completed",   amount: "JOD 300", payment: "Paid" },
+  { id: "#HY-2024-088", customer: "Leena Mansour",    taskType: "Pest Control", service: "Pest Control",   provider: "Khaled S.",  date: "Oct 23, 03:45 PM",status: "Completed",   amount: "JOD 250", payment: "Paid" },
 ];
 
 
@@ -94,8 +94,9 @@ export default function Orders() {
     if (!tasks) return [];
     return tasks.map(t => ({
       id: t.id,
-      customer: t.title,
+      customer: t.customerName ?? t.title,
       service: t.description ?? "Service",
+      taskType: t.taskType ?? "—",
       provider: "Unassigned",
       date: formatDate(t.taskDateTime),
       status: t.orderStatus ?? "NEW",
@@ -209,8 +210,8 @@ export default function Orders() {
                     <th className="w-12 px-4 py-3 text-left">
                       <input type="checkbox" checked={selectedRows.length === filtered.length && filtered.length > 0} onChange={toggleAll} className="rounded" />
                     </th>
-                    {(["id","customer","service","date","amount","status","actions"] as const).map((col) => {
-                      const label: Record<string, string> = { id: "Order ID", customer: "Customer", service: "Service & Provider", date: "Schedule", amount: "Amount", status: "Status", actions: "" };
+                    {(["id","customer","tasktype","service","date","amount","status","actions"] as const).map((col) => {
+                      const label: Record<string, string> = { id: "Order ID", customer: "Customer", tasktype: "Task Type", service: "Service & Provider", date: "Schedule", amount: "Amount", status: "Status", actions: "" };
                       const sortable = (["id","customer","date","status"] as const).includes(col as SortCol);
                       return (
                         <th key={col} className={`font-semibold text-gray-500 py-3 px-4 text-left select-none ${sortable ? "cursor-pointer hover:text-gray-800" : ""}`}
@@ -232,6 +233,7 @@ export default function Orders() {
                         <span className="font-mono text-xs">{order.id}</span>
                       </td>
                       <td className="py-3 px-4 font-medium text-gray-900">{order.customer}</td>
+                      <td className="py-3 px-4 text-sm text-gray-600">{"taskType" in order ? (order as any).taskType || "—" : "—"}</td>
                       <td className="py-3 px-4">
                         <div className="font-medium text-sm text-gray-800">{order.service}</div>
                         <div className={`text-xs mt-0.5 ${order.provider === "Unassigned" ? "text-amber-600 font-medium" : "text-gray-500"}`}>{order.provider}</div>
