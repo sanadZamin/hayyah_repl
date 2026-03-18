@@ -1,8 +1,6 @@
 import { Router } from "express";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
+import { request as httpsRequest } from "node:https";
 
-const execFileAsync = promisify(execFile);
 const router = Router();
 
 const BASE_URL = "https://hayyah.me/api/v1";
@@ -16,36 +14,59 @@ function parseJwt(token: string): Record<string, unknown> {
   }
 }
 
-async function curlGet(url: string, token: string): Promise<{ status: number; data: string }> {
-  const { stdout } = await execFileAsync("curl", [
-    "-s", "-o", "-", "-w", "\n__STATUS__%{http_code}",
-    "-X", "GET", url,
-    "-H", `Authorization: Bearer ${token}`,
-    "-H", "Accept: application/json",
-    "-H", "Origin: https://hayyah.me",
-    "-H", "Referer: https://hayyah.me/",
-  ]);
-  const splitIdx = stdout.lastIndexOf("\n__STATUS__");
-  const data = stdout.slice(0, splitIdx);
-  const status = parseInt(stdout.slice(splitIdx + "\n__STATUS__".length), 10) || 502;
-  return { status, data };
+function hayyahGet(url: string, token: string): Promise<{ status: number; data: string }> {
+  return new Promise((resolve, reject) => {
+    const parsed = new URL(url);
+    const req = httpsRequest(
+      {
+        hostname: parsed.hostname,
+        path: parsed.pathname + parsed.search,
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+          Origin: "https://hayyah.me",
+          Referer: "https://hayyah.me/",
+        },
+      },
+      (res) => {
+        let data = "";
+        res.on("data", (chunk) => { data += chunk; });
+        res.on("end", () => resolve({ status: res.statusCode ?? 502, data }));
+      }
+    );
+    req.on("error", reject);
+    req.end();
+  });
 }
 
-async function curlPost(url: string, token: string, body: string): Promise<{ status: number; data: string }> {
-  const { stdout } = await execFileAsync("curl", [
-    "-s", "-o", "-", "-w", "\n__STATUS__%{http_code}",
-    "-X", "POST", url,
-    "-H", `Authorization: Bearer ${token}`,
-    "-H", "Content-Type: application/json",
-    "-H", "Accept: application/json",
-    "-H", "Origin: https://hayyah.me",
-    "-H", "Referer: https://hayyah.me/",
-    "--data-raw", body,
-  ]);
-  const splitIdx = stdout.lastIndexOf("\n__STATUS__");
-  const data = stdout.slice(0, splitIdx);
-  const status = parseInt(stdout.slice(splitIdx + "\n__STATUS__".length), 10) || 502;
-  return { status, data };
+function hayyahPost(url: string, token: string, body: string): Promise<{ status: number; data: string }> {
+  return new Promise((resolve, reject) => {
+    const parsed = new URL(url);
+    const req = httpsRequest(
+      {
+        hostname: parsed.hostname,
+        path: parsed.pathname + parsed.search,
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          Origin: "https://hayyah.me",
+          Referer: "https://hayyah.me/",
+          "Content-Length": Buffer.byteLength(body),
+        },
+      },
+      (res) => {
+        let data = "";
+        res.on("data", (chunk) => { data += chunk; });
+        res.on("end", () => resolve({ status: res.statusCode ?? 502, data }));
+      }
+    );
+    req.on("error", reject);
+    req.write(body);
+    req.end();
+  });
 }
 
 router.get("/tasks", async (req, res) => {
@@ -58,7 +79,6 @@ router.get("/tasks", async (req, res) => {
   const claims = parseJwt(token);
   const userId = (claims.sub as string) || "";
 
-  // Try these URL patterns in order until one succeeds
   const candidates = [
     `${BASE_URL}/tasks`,
     `${BASE_URL}/tasks?userID=${userId}`,
@@ -70,7 +90,7 @@ router.get("/tasks", async (req, res) => {
   let lastData = "";
 
   for (const url of candidates) {
-    const { status, data } = await curlGet(url, token);
+    const { status, data } = await hayyahGet(url, token);
     console.log(`[tasks] GET ${url} → ${status}${status !== 200 ? ` | ${data.slice(0, 150)}` : ""}`);
     if (status === 200) {
       let parsed: unknown;
@@ -82,13 +102,11 @@ router.get("/tasks", async (req, res) => {
     lastData = data;
   }
 
-  // All candidates failed
   let parsed: unknown;
   try { parsed = JSON.parse(lastData); } catch { parsed = { error: "fetch_failed", error_description: lastData || `Status ${lastStatus}` }; }
   res.status(lastStatus).json(parsed);
 });
 
-// Create task
 router.post("/tasks", async (req, res) => {
   const auth = req.headers.authorization;
   if (!auth || !auth.startsWith("Bearer ")) {
@@ -99,7 +117,7 @@ router.post("/tasks", async (req, res) => {
 
   try {
     const payload = JSON.stringify(req.body);
-    const { status, data } = await curlPost(`${BASE_URL}/tasks`, token, payload);
+    const { status, data } = await hayyahPost(`${BASE_URL}/tasks`, token, payload);
     console.log(`[tasks] POST ${BASE_URL}/tasks → ${status}${status >= 400 ? ` | ${data.slice(0, 200)}` : ""}`);
     let parsed: unknown;
     try { parsed = JSON.parse(data); } catch { parsed = { raw: data }; }

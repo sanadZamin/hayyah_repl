@@ -1,25 +1,34 @@
 import { Router } from "express";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
+import { request as httpsRequest } from "node:https";
 
-const execFileAsync = promisify(execFile);
 const router = Router();
 
 const USERS_BASE = "https://hayyah.me/api/v1/user";
 
-async function curlGet(url: string, token: string): Promise<{ status: number; data: string }> {
-  const { stdout } = await execFileAsync("curl", [
-    "-s", "-o", "-", "-w", "\n__STATUS__%{http_code}",
-    "-X", "GET", url,
-    "-H", `Authorization: Bearer ${token}`,
-    "-H", "Accept: application/json",
-    "-H", "Origin: https://hayyah.me",
-    "-H", "Referer: https://hayyah.me/",
-  ]);
-  const splitIdx = stdout.lastIndexOf("\n__STATUS__");
-  const data = stdout.slice(0, splitIdx);
-  const status = parseInt(stdout.slice(splitIdx + "\n__STATUS__".length), 10) || 502;
-  return { status, data };
+function hayyahGet(url: string, token: string): Promise<{ status: number; data: string }> {
+  return new Promise((resolve, reject) => {
+    const parsed = new URL(url);
+    const req = httpsRequest(
+      {
+        hostname: parsed.hostname,
+        path: parsed.pathname + parsed.search,
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+          Origin: "https://hayyah.me",
+          Referer: "https://hayyah.me/",
+        },
+      },
+      (res) => {
+        let data = "";
+        res.on("data", (chunk) => { data += chunk; });
+        res.on("end", () => resolve({ status: res.statusCode ?? 502, data }));
+      }
+    );
+    req.on("error", reject);
+    req.end();
+  });
 }
 
 router.get("/users", async (req, res) => {
@@ -35,12 +44,10 @@ router.get("/users", async (req, res) => {
   const url = `${USERS_BASE}?page=${page}&size=${size}`;
 
   try {
-    const { status, data } = await curlGet(url, token);
+    const { status, data } = await hayyahGet(url, token);
     console.log(`[users] GET ${url} → ${status}${status !== 200 ? ` | ${data.slice(0, 200)}` : ""}`);
-
     let parsed: unknown;
     try { parsed = JSON.parse(data); } catch { parsed = { error: "parse_error" }; }
-
     res.status(status).json(parsed);
   } catch (err) {
     console.error("[users] error:", err);
