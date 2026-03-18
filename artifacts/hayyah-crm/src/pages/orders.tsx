@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { AppLayout } from "@/components/app-layout";
 import { useTasks } from "@/hooks/use-tasks";
+import { useDashboardMetrics } from "@/hooks/use-dashboard";
 import { Search, Eye, Edit2, Download, Calendar, X, Wrench, MapPin, User, Clock, CheckCircle2, Loader2, AlertCircle, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import { format } from "date-fns";
 
@@ -51,13 +52,6 @@ const MOCK_ORDERS = [
   { id: "#HY-2024-088", customer: "Leena Mansour",    service: "Pest Control",   provider: "Khaled S.",  date: "Oct 23, 03:45 PM",status: "Completed",   amount: "SAR 250", payment: "Paid" },
 ];
 
-const STAT_TABS = [
-  { label: "Total", value: "1,284", color: "#0d2270" },
-  { label: "Pending", value: "87", color: "#d97706" },
-  { label: "In Progress", value: "43", color: "#0088fb" },
-  { label: "Completed", value: "1,104", color: "#059669" },
-  { label: "Cancelled", value: "50", color: "#dc2626" },
-];
 
 type SortCol = "id" | "customer" | "date" | "status";
 type SortDir = "asc" | "desc";
@@ -71,6 +65,7 @@ function SortIcon({ col, sortCol, sortDir }: { col: SortCol; sortCol: SortCol | 
 
 export default function Orders() {
   const { data: tasks, isLoading, isError, error, refetch } = useTasks();
+  const { data: metrics } = useDashboardMetrics();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -82,6 +77,16 @@ export default function Orders() {
     if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc");
     else { setSortCol(col); setSortDir("asc"); }
   }
+
+  const tasksByState = (metrics?.tasksByState ?? {}) as Record<string, number>;
+  const statTabs = [
+    { label: "Total",            value: metrics?.totalTaskCount as number | undefined,  color: "#0d2270" },
+    { label: "New",              value: tasksByState["NEW"],                              color: "#7c3aed" },
+    { label: "Awaiting Payment", value: tasksByState["AWAITING_PAYMENT"],                color: "#d97706" },
+    { label: "Fulfilling",       value: tasksByState["FULFILLING"],                      color: "#0088fb" },
+    { label: "Fulfilled",        value: tasksByState["FULFILLED"],                       color: "#059669" },
+    { label: "Canceled",         value: tasksByState["CANCELED"],                        color: "#dc2626" },
+  ];
 
   const hasTasks = !isLoading && !isError && tasks && tasks.length > 0;
 
@@ -132,10 +137,12 @@ export default function Orders() {
             <h1 className="text-2xl font-bold" style={{ color: "var(--hayyah-navy)" }}>Orders</h1>
             <p className="text-gray-500 text-sm mt-1 mb-4">Manage and track all service orders</p>
             <div className="flex flex-wrap gap-3">
-              {STAT_TABS.map((s) => (
+              {statTabs.map((s) => (
                 <div key={s.label} className="rounded-xl bg-white shadow-sm flex-1 min-w-[110px] px-4 py-3">
                   <span className="text-xs font-semibold text-gray-500 uppercase">{s.label}</span>
-                  <div className="text-xl font-bold mt-1" style={{ color: s.color }}>{s.value}</div>
+                  <div className="text-xl font-bold mt-1" style={{ color: s.color }}>
+                    {s.value !== undefined ? s.value.toLocaleString() : <span className="text-gray-300 text-sm">—</span>}
+                  </div>
                 </div>
               ))}
             </div>
