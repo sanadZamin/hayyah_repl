@@ -55,7 +55,7 @@ export default function Orders() {
   const apiOrders = useMemo(() => {
     if (!tasks) return [];
     return tasks.map(t => ({
-      id: t.id.slice(0, 8),
+      id: t.id,
       customer: t.title,
       service: t.description ?? "Service",
       provider: "Unassigned",
@@ -168,7 +168,9 @@ export default function Orders() {
                       <td className="px-4 py-3">
                         <input type="checkbox" checked={selectedRows.includes(order.id)} onChange={() => toggleRow(order.id)} className="rounded" />
                       </td>
-                      <td className="py-3 px-4 font-medium" style={{ color: "var(--hayyah-navy)" }}>{order.id}</td>
+                      <td className="py-3 px-4 font-medium whitespace-nowrap" style={{ color: "var(--hayyah-navy)" }}>
+                        <span className="font-mono text-xs">{order.id}</span>
+                      </td>
                       <td className="py-3 px-4 font-medium text-gray-900">{order.customer}</td>
                       <td className="py-3 px-4">
                         <div className="font-medium text-sm text-gray-800">{order.service}</div>
