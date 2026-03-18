@@ -53,7 +53,7 @@ const MOCK_ORDERS = [
 ];
 
 
-type SortCol = "id" | "customer" | "date" | "status";
+type SortCol = "id" | "customer" | "tasktype" | "service" | "date" | "status";
 type SortDir = "asc" | "desc";
 
 function SortIcon({ col, sortCol, sortDir }: { col: SortCol; sortCol: SortCol | null; sortDir: SortDir }) {
@@ -117,10 +117,12 @@ export default function Orders() {
     if (!sortCol) return rows;
     return [...rows].sort((a, b) => {
       let av = "", bv = "";
-      if (sortCol === "id")       { av = a.id;       bv = b.id; }
-      if (sortCol === "customer") { av = a.customer;  bv = b.customer; }
-      if (sortCol === "date")     { av = a.date;      bv = b.date; }
-      if (sortCol === "status")   { av = a.status;    bv = b.status; }
+      if (sortCol === "id")       { av = a.id;                            bv = b.id; }
+      if (sortCol === "customer") { av = a.customer;                      bv = b.customer; }
+      if (sortCol === "tasktype") { av = (a as any).taskType ?? "";        bv = (b as any).taskType ?? ""; }
+      if (sortCol === "service")  { av = a.service;                       bv = b.service; }
+      if (sortCol === "date")     { av = a.date;                          bv = b.date; }
+      if (sortCol === "status")   { av = a.status;                        bv = b.status; }
       return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
     });
   }, [orders, search, statusFilter, sortCol, sortDir]);
@@ -212,7 +214,7 @@ export default function Orders() {
                     </th>
                     {(["id","customer","tasktype","service","date","amount","status","actions"] as const).map((col) => {
                       const label: Record<string, string> = { id: "Order ID", customer: "Customer", tasktype: "Task Type", service: "Service & Provider", date: "Schedule", amount: "Amount", status: "Status", actions: "" };
-                      const sortable = (["id","customer","date","status"] as const).includes(col as SortCol);
+                      const sortable = (["id","customer","tasktype","service","date","status"] as const).includes(col as SortCol);
                       return (
                         <th key={col} className={`font-semibold text-gray-500 py-3 px-4 text-left select-none ${sortable ? "cursor-pointer hover:text-gray-800" : ""}`}
                           onClick={() => sortable && handleSort(col as SortCol)}>
