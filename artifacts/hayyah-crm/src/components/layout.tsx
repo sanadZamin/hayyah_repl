@@ -1,5 +1,4 @@
 import { ReactNode } from "react";
-import { useLocation } from "wouter";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./app-sidebar";
 import { useAuth } from "@/hooks/use-auth";
@@ -7,11 +6,11 @@ import { LogOut } from "lucide-react";
 
 export function Layout({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth();
-  const [, navigate] = useLocation();
 
   const handleLogout = () => {
     logout();
-    navigate("/login");
+    // Hard redirect clears all cached state and works reliably across all deployments
+    window.location.href = "/login";
   };
 
   const style = {
