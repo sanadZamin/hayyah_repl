@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { request as httpsRequest } from "node:https";
 
 const router = Router();
 
@@ -7,14 +8,32 @@ const CLIENT_ID = "web_client";
 const CLIENT_SECRET = process.env.KEYCLOAK_CLIENT_SECRET ?? "";
 
 async function keycloakPost(body: string): Promise<{ status: number; json: unknown }> {
-  const res = await fetch(KEYCLOAK_TOKEN_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body,
+  return new Promise((resolve, reject) => {
+    const url = new URL(KEYCLOAK_TOKEN_URL);
+    const req = httpsRequest(
+      {
+        hostname: url.hostname,
+        path: url.pathname + url.search,
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "Content-Length": Buffer.byteLength(body),
+        },
+      },
+      (res) => {
+        let raw = "";
+        res.on("data", (chunk) => { raw += chunk; });
+        res.on("end", () => {
+          let json: unknown;
+          try { json = JSON.parse(raw); } catch { json = { error: "parse_error", error_description: raw }; }
+          resolve({ status: res.statusCode ?? 502, json });
+        });
+      }
+    );
+    req.on("error", reject);
+    req.write(body);
+    req.end();
   });
-  let json: unknown;
-  try { json = await res.json(); } catch { json = { error: "parse_error" }; }
-  return { status: res.status, json };
 }
 
 // Login
