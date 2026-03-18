@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Eye, EyeOff, Home, ArrowRight, Shield, Sparkles, Loader2 } from "lucide-react";
+import { Eye, EyeOff, ArrowRight, Shield, Sparkles, Loader2 } from "lucide-react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -49,7 +49,7 @@ export default function Login() {
         <div className="relative z-10 flex flex-col items-center text-center gap-8 px-8">
           <div className="relative">
             <div className="flex items-center justify-center rounded-3xl" style={{ width: 180, height: 180, background: "rgba(0,136,251,0.15)", border: "1px solid rgba(0,136,251,0.3)" }}>
-              <Home className="w-20 h-20" style={{ color: "var(--hayyah-blue, #0088fb)" }} />
+              <img src={`${import.meta.env.BASE_URL}images/hayyah-icon-white.png`} alt="Hayyah" style={{ width: 80, height: 80, objectFit: "contain" }} />
             </div>
             <div className="absolute -top-4 -right-8 flex items-center gap-2 px-4 py-2 rounded-2xl" style={{ background: "rgba(83,255,176,0.15)", border: "1px solid rgba(83,255,176,0.3)" }}>
               <Sparkles className="w-4 h-4" style={{ color: "var(--hayyah-mint, #53ffb0)" }} />
