@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { AppLayout } from "@/components/app-layout";
 import { useTasks } from "@/hooks/use-tasks";
-import { Search, Eye, Edit2, Download, Calendar, X, Wrench, MapPin, User, Clock, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
+import { Search, Eye, Edit2, Download, Calendar, X, Wrench, MapPin, User, Clock, CheckCircle2, Loader2, AlertCircle, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import { format } from "date-fns";
 
 const STATUS_MAP: Record<string, string> = {
@@ -43,12 +43,29 @@ const STAT_TABS = [
   { label: "Cancelled", value: "50", color: "#dc2626" },
 ];
 
+type SortCol = "id" | "customer" | "date" | "status";
+type SortDir = "asc" | "desc";
+
+function SortIcon({ col, sortCol, sortDir }: { col: SortCol; sortCol: SortCol | null; sortDir: SortDir }) {
+  if (sortCol !== col) return <ChevronsUpDown className="w-3.5 h-3.5 text-gray-300 ml-1 inline" />;
+  return sortDir === "asc"
+    ? <ChevronUp className="w-3.5 h-3.5 ml-1 inline" style={{ color: "var(--hayyah-blue)" }} />
+    : <ChevronDown className="w-3.5 h-3.5 ml-1 inline" style={{ color: "var(--hayyah-blue)" }} />;
+}
+
 export default function Orders() {
   const { data: tasks, isLoading, isError, error, refetch } = useTasks();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
+  const [sortCol, setSortCol] = useState<SortCol | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+
+  function handleSort(col: SortCol) {
+    if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc");
+    else { setSortCol(col); setSortDir("asc"); }
+  }
 
   const hasTasks = !isLoading && !isError && tasks && tasks.length > 0;
 
@@ -70,12 +87,21 @@ export default function Orders() {
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    return orders.filter(o => {
+    const rows = orders.filter(o => {
       const matchSearch = !q || o.customer.toLowerCase().includes(q) || o.service.toLowerCase().includes(q) || o.id.toLowerCase().includes(q);
       const matchStatus = statusFilter === "all" || o.status.toLowerCase().replace(" ", "_") === statusFilter;
       return matchSearch && matchStatus;
     });
-  }, [orders, search, statusFilter]);
+    if (!sortCol) return rows;
+    return [...rows].sort((a, b) => {
+      let av = "", bv = "";
+      if (sortCol === "id")       { av = a.id;       bv = b.id; }
+      if (sortCol === "customer") { av = a.customer;  bv = b.customer; }
+      if (sortCol === "date")     { av = a.date;      bv = b.date; }
+      if (sortCol === "status")   { av = a.status;    bv = b.status; }
+      return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+    });
+  }, [orders, search, statusFilter, sortCol, sortDir]);
 
   const selectedOrder = MOCK_ORDERS.find(o => o.id === selectedId);
 
@@ -157,9 +183,17 @@ export default function Orders() {
                     <th className="w-12 px-4 py-3 text-left">
                       <input type="checkbox" checked={selectedRows.length === filtered.length && filtered.length > 0} onChange={toggleAll} className="rounded" />
                     </th>
-                    {["Order ID", "Customer", "Service & Provider", "Schedule", "Amount", "Status", "Actions"].map((h) => (
-                      <th key={h} className="font-semibold text-gray-500 py-3 px-4 text-left">{h}</th>
-                    ))}
+                    {(["id","customer","service","date","amount","status","actions"] as const).map((col) => {
+                      const label: Record<string, string> = { id: "Order ID", customer: "Customer", service: "Service & Provider", date: "Schedule", amount: "Amount", status: "Status", actions: "" };
+                      const sortable = (["id","customer","date","status"] as const).includes(col as SortCol);
+                      return (
+                        <th key={col} className={`font-semibold text-gray-500 py-3 px-4 text-left select-none ${sortable ? "cursor-pointer hover:text-gray-800" : ""}`}
+                          onClick={() => sortable && handleSort(col as SortCol)}>
+                          {label[col]}
+                          {sortable && <SortIcon col={col as SortCol} sortCol={sortCol} sortDir={sortDir} />}
+                        </th>
+                      );
+                    })}
                   </tr>
                 </thead>
                 <tbody>

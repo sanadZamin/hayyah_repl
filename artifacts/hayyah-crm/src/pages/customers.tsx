@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { AppLayout } from "@/components/app-layout";
 import { useUsers, type HayyahUser } from "@/hooks/use-users";
-import { Search, Plus, MoreVertical, Filter, ChevronLeft, ChevronRight, Phone, Mail, MapPin, Star, Clock, CheckCircle2, X, Loader2, AlertCircle } from "lucide-react";
+import { Search, Plus, MoreVertical, Filter, ChevronLeft, ChevronRight, Phone, Mail, MapPin, Star, Clock, CheckCircle2, X, Loader2, AlertCircle, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 
 function getFullName(u: HayyahUser): string {
   if (u.firstName || u.lastName) return `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim();
@@ -22,16 +22,33 @@ function StatusBadge({ status }: { status: string }) {
   return <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600 w-fit">{status}</span>;
 }
 
+type SortCol = "name" | "email" | "username" | "status";
+type SortDir = "asc" | "desc";
+
+function SortIcon({ col, sortCol, sortDir }: { col: SortCol; sortCol: SortCol | null; sortDir: SortDir }) {
+  if (sortCol !== col) return <ChevronsUpDown className="w-3.5 h-3.5 text-gray-300 ml-1 inline" />;
+  return sortDir === "asc"
+    ? <ChevronUp className="w-3.5 h-3.5 ml-1 inline" style={{ color: "var(--hayyah-blue)" }} />
+    : <ChevronDown className="w-3.5 h-3.5 ml-1 inline" style={{ color: "var(--hayyah-blue)" }} />;
+}
+
 export default function Customers() {
   const { data: users, isLoading, isError, error, refetch } = useUsers(0, 100);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [sortCol, setSortCol] = useState<SortCol | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+
+  function handleSort(col: SortCol) {
+    if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc");
+    else { setSortCol(col); setSortDir("asc"); }
+  }
 
   const filtered = useMemo(() => {
     if (!users) return [];
     const q = search.toLowerCase();
-    return users.filter((u) => {
+    const rows = users.filter((u) => {
       const name = getFullName(u).toLowerCase();
       const email = (u.email ?? "").toLowerCase();
       const phone = (u.phone ?? u.phoneNumber ?? "").toLowerCase();
@@ -39,7 +56,16 @@ export default function Customers() {
       const matchStatus = statusFilter === "all" || getStatus(u).toLowerCase() === statusFilter;
       return matchSearch && matchStatus;
     });
-  }, [users, search, statusFilter]);
+    if (!sortCol) return rows;
+    return [...rows].sort((a, b) => {
+      let av = "", bv = "";
+      if (sortCol === "name")     { av = getFullName(a); bv = getFullName(b); }
+      if (sortCol === "email")    { av = a.email ?? ""; bv = b.email ?? ""; }
+      if (sortCol === "username") { av = a.username ?? ""; bv = b.username ?? ""; }
+      if (sortCol === "status")   { av = getStatus(a); bv = getStatus(b); }
+      return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+    });
+  }, [users, search, statusFilter, sortCol, sortDir]);
 
   const selectedUser = filtered.find(u => u.id === selectedId);
 
@@ -118,9 +144,18 @@ export default function Customers() {
                 <table className="w-full text-sm">
                   <thead className="sticky top-0 bg-white z-10" style={{ boxShadow: "0 1px 0 #f3f4f6" }}>
                     <tr>
-                      {["Customer", "Email", "Mobile", "Username", "Status", ""].map((h) => (
-                        <th key={h} className="font-semibold text-gray-500 py-4 px-4 text-left">{h}</th>
-                      ))}
+                      {(["name","email","mobile","username","status"] as const).map((col) => {
+                        const label: Record<string, string> = { name: "Customer", email: "Email", mobile: "Mobile", username: "Username", status: "Status" };
+                        const sortable = col !== "mobile";
+                        return (
+                          <th key={col} className={`font-semibold text-gray-500 py-4 px-4 text-left select-none ${sortable ? "cursor-pointer hover:text-gray-800" : ""}`}
+                            onClick={() => sortable && handleSort(col as SortCol)}>
+                            {label[col]}
+                            {sortable && <SortIcon col={col as SortCol} sortCol={sortCol} sortDir={sortDir} />}
+                          </th>
+                        );
+                      })}
+                      <th className="font-semibold text-gray-500 py-4 px-4 text-left" />
                     </tr>
                   </thead>
                   <tbody>
