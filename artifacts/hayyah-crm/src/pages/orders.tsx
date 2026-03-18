@@ -4,18 +4,34 @@ import { useTasks } from "@/hooks/use-tasks";
 import { Search, Eye, Edit2, Download, Calendar, X, Wrench, MapPin, User, Clock, CheckCircle2, Loader2, AlertCircle, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import { format } from "date-fns";
 
-const STATUS_MAP: Record<string, string> = {
-  NEW: "New", PENDING: "Pending", CONFIRMED: "Confirmed",
-  IN_PROGRESS: "In Progress", COMPLETED: "Completed", CANCELLED: "Cancelled",
+const STATUS_LABEL: Record<string, string> = {
+  NEW: "New",
+  AWAITING_PAYMENT: "Awaiting Payment",
+  PAID: "Paid",
+  FULFILLING: "Fulfilling",
+  FULFILLED: "Fulfilled",
+  CANCELED: "Canceled",
+  REFUNDED: "Refunded",
+  PENDING: "Pending",
+  IN_PROGRESS: "In Progress",
+  COMPLETED: "Completed",
+  CANCELLED: "Cancelled",
 };
+
+function getStatusLabel(status: string) {
+  return STATUS_LABEL[status] ?? status;
+}
 
 function getStatusBadge(status: string) {
   switch (status) {
-    case "COMPLETED": case "Completed": return "bg-[#53ffb0]/20 text-emerald-800";
-    case "IN_PROGRESS": case "In Progress": return "bg-[#0088fb]/20 text-[#0088fb]";
-    case "PENDING": case "Pending": case "NEW": case "New": return "bg-amber-100 text-amber-800";
-    case "CANCELLED": case "Cancelled": return "bg-red-100 text-red-800";
-    default: return "bg-gray-100 text-gray-800";
+    case "FULFILLED": case "COMPLETED": case "Completed":   return "bg-[#53ffb0]/20 text-emerald-800";
+    case "PAID":                                             return "bg-teal-100 text-teal-800";
+    case "FULFILLING": case "IN_PROGRESS": case "In Progress": return "bg-[#0088fb]/20 text-[#0088fb]";
+    case "NEW":                                              return "bg-purple-100 text-purple-800";
+    case "AWAITING_PAYMENT":                                 return "bg-amber-100 text-amber-800";
+    case "CANCELED": case "CANCELLED": case "Cancelled":    return "bg-red-100 text-red-800";
+    case "REFUNDED":                                         return "bg-gray-100 text-gray-700";
+    default:                                                 return "bg-gray-100 text-gray-800";
   }
 }
 
@@ -77,7 +93,7 @@ export default function Orders() {
       service: t.description ?? "Service",
       provider: "Unassigned",
       date: formatDate(t.taskDateTime),
-      status: STATUS_MAP[t.orderStatus] ?? t.orderStatus,
+      status: t.orderStatus ?? "NEW",
       amount: "SAR —",
       payment: "—",
     }));
@@ -89,7 +105,7 @@ export default function Orders() {
     const q = search.toLowerCase();
     const rows = orders.filter(o => {
       const matchSearch = !q || o.customer.toLowerCase().includes(q) || o.service.toLowerCase().includes(q) || o.id.toLowerCase().includes(q);
-      const matchStatus = statusFilter === "all" || o.status.toLowerCase().replace(" ", "_") === statusFilter;
+      const matchStatus = statusFilter === "all" || o.status === statusFilter;
       return matchSearch && matchStatus;
     });
     if (!sortCol) return rows;
@@ -151,10 +167,13 @@ export default function Orders() {
               </button>
               <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-3 py-2 rounded-xl border text-sm text-gray-600 outline-none bg-white" style={{ borderColor: "#e2e8f0" }}>
                 <option value="all">All Status</option>
-                <option value="pending">Pending</option>
-                <option value="in_progress">In Progress</option>
-                <option value="completed">Completed</option>
-                <option value="cancelled">Cancelled</option>
+                <option value="NEW">New</option>
+                <option value="AWAITING_PAYMENT">Awaiting Payment</option>
+                <option value="PAID">Paid</option>
+                <option value="FULFILLING">Fulfilling</option>
+                <option value="FULFILLED">Fulfilled</option>
+                <option value="CANCELED">Canceled</option>
+                <option value="REFUNDED">Refunded</option>
               </select>
             </div>
 
@@ -218,7 +237,7 @@ export default function Orders() {
                         )}
                       </td>
                       <td className="py-3 px-4">
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusBadge(order.status)}`}>{order.status}</span>
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusBadge(order.status)}`}>{getStatusLabel(order.status)}</span>
                       </td>
                       <td className="py-3 px-4 text-right">
                         <div className="flex items-center justify-end gap-1">
@@ -250,7 +269,7 @@ export default function Orders() {
                     <div>
                       <h2 className="text-lg font-bold" style={{ color: "var(--hayyah-navy)" }}>Order {order.id}</h2>
                       <div className="mt-2 flex items-center gap-2">
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusBadge(order.status)}`}>{order.status}</span>
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusBadge(order.status)}`}>{getStatusLabel(order.status)}</span>
                         <span className="text-sm text-gray-500">• {order.date}</span>
                       </div>
                     </div>
