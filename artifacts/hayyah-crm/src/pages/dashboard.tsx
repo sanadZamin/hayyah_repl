@@ -34,29 +34,21 @@ export default function Dashboard() {
   const [, setLocation] = useLocation();
   const [newOrderOpen, setNewOrderOpen] = useState(false);
 
-  const n = (keys: string[]): number | null => {
-    if (!data) return null;
-    for (const k of keys) {
-      const v = data[k];
-      if (typeof v === "number") return v;
-      if (typeof v === "string" && !isNaN(Number(v))) return Number(v);
-    }
-    return null;
-  };
-
-  const totalOrders   = n(["totalOrders", "total_orders", "ordersCount", "orders_count"]);
-  const totalCustomers = n(["totalCustomers", "total_customers", "customersCount", "customers_count"]);
-  const revenue        = n(["revenue", "totalRevenue", "total_revenue", "revenueThisMonth"]);
-  const avgRating      = n(["avgRating", "avg_rating", "averageRating", "average_rating", "rating"]);
+  const tasksByState = (data?.tasksByState ?? {}) as Record<string, number>;
+  const totalOrders    = typeof data?.totalTaskCount === "number" ? data.totalTaskCount : null;
+  const totalCustomers = typeof data?.customerCount  === "number" ? data.customerCount  : null;
+  const activeOrders   = data
+    ? (tasksByState.AWAITING_PAYMENT ?? 0) + (tasksByState.PAID ?? 0) + (tasksByState.FULFILLING ?? 0)
+    : null;
 
   const fmt = (v: number | null, prefix = "") =>
     v !== null ? `${prefix}${v.toLocaleString()}` : "—";
 
   const stats = [
-    { label: "Total Orders",        value: fmt(totalOrders),           icon: ShoppingBag, trend: "+12%", positive: true },
-    { label: "Active Customers",    value: fmt(totalCustomers),         icon: Users,       trend: "+8%",  positive: true },
-    { label: "Revenue This Month",  value: fmt(revenue, "SAR "),       icon: DollarSign,  trend: "+24%", positive: true },
-    { label: "Avg. Service Rating", value: avgRating !== null ? String(avgRating) : "4.8", icon: Star, trend: "-2%", positive: false },
+    { label: "Total Orders",        value: fmt(totalOrders),    icon: ShoppingBag, trend: "+12%", positive: true },
+    { label: "Active Customers",    value: fmt(totalCustomers), icon: Users,       trend: "+8%",  positive: true },
+    { label: "Active Orders",       value: fmt(activeOrders),   icon: DollarSign,  trend: "+24%", positive: true },
+    { label: "Avg. Service Rating", value: "4.8",               icon: Star,        trend: "-2%",  positive: false },
   ];
 
   return (
