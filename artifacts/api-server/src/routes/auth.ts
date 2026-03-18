@@ -39,15 +39,24 @@ router.post("/auth/token", async (req, res) => {
 
 // Refresh
 router.post("/auth/refresh", async (req, res) => {
-  const { refresh_token } = req.body as { refresh_token?: string };
+  const { refresh_token, client_id, client_secret } = req.body as {
+    refresh_token?: string;
+    client_id?: string;
+    client_secret?: string;
+  };
   if (!refresh_token) {
     res.status(400).json({ error: "missing_token", error_description: "refresh_token is required." });
     return;
   }
+  const effectiveClientId = client_id || CLIENT_ID;
+  const effectiveClientSecret = client_secret || CLIENT_SECRET;
+  if (!effectiveClientSecret) {
+    console.error("[auth] No client_secret available for refresh — set KEYCLOAK_CLIENT_SECRET env var");
+  }
   try {
     const body = new URLSearchParams({
-      client_id: CLIENT_ID,
-      client_secret: CLIENT_SECRET,
+      client_id: effectiveClientId,
+      client_secret: effectiveClientSecret,
       grant_type: "refresh_token",
       refresh_token,
     }).toString();

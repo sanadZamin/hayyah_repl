@@ -1,5 +1,7 @@
 const TOKEN_KEY = "hayyah_token";
 const AUTH_KEY = "hayyah_auth";
+const CLIENT_ID = "web_client";
+const CLIENT_SECRET = import.meta.env.VITE_CLIENT_SECRET ?? "";
 
 interface TokenData {
   access_token: string;
@@ -41,7 +43,11 @@ async function refreshAccessToken(): Promise<string | null> {
     const res = await fetch("/api/auth/refresh", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refresh_token: tokenData.refresh_token }),
+      body: JSON.stringify({
+        refresh_token: tokenData.refresh_token,
+        client_id: CLIENT_ID,
+        client_secret: CLIENT_SECRET,
+      }),
     });
 
     if (!res.ok) {
