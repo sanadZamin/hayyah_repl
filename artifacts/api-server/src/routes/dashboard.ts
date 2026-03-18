@@ -1,91 +1,46 @@
 import { Router, type IRouter } from "express";
-import { db } from "@workspace/db";
-import { bookingsTable, customersTable, techniciansTable, servicesTable } from "@workspace/db/schema";
-import { eq, count, sql, desc } from "drizzle-orm";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 
+const execFileAsync = promisify(execFile);
 const router: IRouter = Router();
 
-router.get("/dashboard/metrics", async (_req, res) => {
+const STATS_URL = "https://hayyah.me/api/v1/stats";
+
+async function curlGet(url: string, token: string): Promise<{ status: number; data: string }> {
+  const { stdout } = await execFileAsync("curl", [
+    "-s", "-o", "-", "-w", "\n__STATUS__%{http_code}",
+    "-X", "GET", url,
+    "-H", `Authorization: Bearer ${token}`,
+    "-H", "Accept: application/json",
+    "-H", "Origin: https://hayyah.me",
+    "-H", "Referer: https://hayyah.me/",
+  ]);
+  const splitIdx = stdout.lastIndexOf("\n__STATUS__");
+  const data = stdout.slice(0, splitIdx);
+  const status = parseInt(stdout.slice(splitIdx + "\n__STATUS__".length), 10) || 502;
+  return { status, data };
+}
+
+router.get("/dashboard/metrics", async (req, res) => {
+  const auth = req.headers.authorization;
+  if (!auth || !auth.startsWith("Bearer ")) {
+    res.status(401).json({ error: "unauthorized" });
+    return;
+  }
+  const token = auth.slice(7);
+
   try {
-    const [{ total: totalCustomers }] = await db.select({ total: count() }).from(customersTable);
-    
-    const [{ total: newLeads }] = await db.select({ total: count() }).from(customersTable)
-      .where(eq(customersTable.status, "lead"));
-    
-    const [{ total: activeBookings }] = await db.select({ total: count() }).from(bookingsTable)
-      .where(sql`${bookingsTable.status} IN ('pending', 'confirmed', 'in_progress')`);
-    
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    
-    const [{ total: completedToday }] = await db.select({ total: count() }).from(bookingsTable)
-      .where(sql`${bookingsTable.status} = 'completed' AND ${bookingsTable.scheduledAt} >= ${today} AND ${bookingsTable.scheduledAt} < ${tomorrow}`);
-    
-    const [{ rev }] = await db.select({ rev: sql<string>`COALESCE(SUM(CAST(${bookingsTable.price} AS NUMERIC)), 0)` })
-      .from(bookingsTable).where(eq(bookingsTable.status, "completed"));
-    
-    const [{ total: availableTechnicians }] = await db.select({ total: count() }).from(techniciansTable)
-      .where(eq(techniciansTable.status, "available"));
-    
-    const upcomingRows = await db.select().from(bookingsTable)
-      .where(sql`${bookingsTable.status} IN ('pending', 'confirmed') AND ${bookingsTable.scheduledAt} >= NOW()`)
-      .orderBy(bookingsTable.scheduledAt)
-      .limit(5);
-    
-    const recentCustomerRows = await db.select().from(customersTable)
-      .orderBy(desc(customersTable.createdAt))
-      .limit(5);
-    
-    const statusCounts = await db.select({ status: bookingsTable.status, count: count() })
-      .from(bookingsTable).groupBy(bookingsTable.status);
-    
-    const enrichBooking = async (b: typeof bookingsTable.$inferSelect) => {
-      const [customer] = await db.select({ name: customersTable.name }).from(customersTable).where(eq(customersTable.id, b.customerId));
-      const [service] = await db.select({ name: servicesTable.name }).from(servicesTable).where(eq(servicesTable.id, b.serviceId));
-      let technicianName = undefined;
-      if (b.technicianId) {
-        const [tech] = await db.select({ name: techniciansTable.name }).from(techniciansTable).where(eq(techniciansTable.id, b.technicianId));
-        technicianName = tech?.name;
-      }
-      return {
-        ...b,
-        price: parseFloat(b.price as string),
-        scheduledAt: b.scheduledAt.toISOString(),
-        createdAt: b.createdAt.toISOString(),
-        customerName: customer?.name ?? "Unknown",
-        serviceName: service?.name ?? "Unknown",
-        technicianName,
-        technicianId: b.technicianId ?? undefined,
-        notes: b.notes ?? undefined,
-      };
-    };
-    
-    const upcomingBookings = await Promise.all(upcomingRows.map(enrichBooking));
-    
-    res.json({
-      totalCustomers: Number(totalCustomers),
-      activeBookings: Number(activeBookings),
-      completedToday: Number(completedToday),
-      revenue: parseFloat(rev ?? "0"),
-      revenueGrowth: 12.5,
-      newLeads: Number(newLeads),
-      availableTechnicians: Number(availableTechnicians),
-      upcomingBookings,
-      recentCustomers: recentCustomerRows.map(c => ({
-        ...c,
-        totalSpent: parseFloat(c.totalSpent as string),
-        createdAt: c.createdAt.toISOString(),
-      })),
-      bookingsByStatus: statusCounts.map(s => ({
-        status: s.status,
-        count: Number(s.count),
-      })),
-    });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: "Failed to fetch metrics" });
+    const { status, data } = await curlGet(STATS_URL, token);
+    console.log(`[dashboard] GET ${STATS_URL} → ${status}`);
+
+    let parsed: unknown;
+    try { parsed = JSON.parse(data); } catch { parsed = { error: "parse_error" }; }
+
+    res.status(status).json(parsed);
+  } catch (err) {
+    console.error("[dashboard] error:", err);
+    res.status(502).json({ error: "proxy_error", error_description: "Could not reach stats API." });
   }
 });
 

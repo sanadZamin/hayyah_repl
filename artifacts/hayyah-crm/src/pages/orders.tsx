@@ -1,0 +1,377 @@
+import { useState, useMemo } from "react";
+import { AppLayout } from "@/components/app-layout";
+import { useTasks } from "@/hooks/use-tasks";
+import { useDashboardMetrics } from "@/hooks/use-dashboard";
+import { Search, Eye, Edit2, Download, Calendar, X, Wrench, MapPin, User, Clock, CheckCircle2, Loader2, AlertCircle, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
+import { format } from "date-fns";
+
+const STATUS_LABEL: Record<string, string> = {
+  NEW: "New",
+  AWAITING_PAYMENT: "Awaiting Payment",
+  PAID: "Paid",
+  FULFILLING: "Fulfilling",
+  FULFILLED: "Fulfilled",
+  CANCELED: "Canceled",
+  REFUNDED: "Refunded",
+  PENDING: "Pending",
+  IN_PROGRESS: "In Progress",
+  COMPLETED: "Completed",
+  CANCELLED: "Cancelled",
+};
+
+function getStatusLabel(status: string) {
+  return STATUS_LABEL[status] ?? status;
+}
+
+function getStatusBadge(status: string) {
+  switch (status) {
+    case "FULFILLED": case "COMPLETED": case "Completed":   return "bg-[#53ffb0]/20 text-emerald-800";
+    case "PAID":                                             return "bg-teal-100 text-teal-800";
+    case "FULFILLING": case "IN_PROGRESS": case "In Progress": return "bg-[#0088fb]/20 text-[#0088fb]";
+    case "NEW":                                              return "bg-purple-100 text-purple-800";
+    case "AWAITING_PAYMENT":                                 return "bg-amber-100 text-amber-800";
+    case "CANCELED": case "CANCELLED": case "Cancelled":    return "bg-red-100 text-red-800";
+    case "REFUNDED":                                         return "bg-gray-100 text-gray-700";
+    default:                                                 return "bg-gray-100 text-gray-800";
+  }
+}
+
+function formatDate(ms: number) {
+  if (!ms || ms <= 0) return "—";
+  try { return format(new Date(ms), "MMM d, h:mm a"); } catch { return "—"; }
+}
+
+const MOCK_ORDERS = [
+  { id: "#HY-2024-081", customer: "Ahmed Al-Farsi",  taskType: "Cleaning",     service: "Deep Cleaning",  provider: "Omar K.",    date: "Today, 10:30 AM", status: "Completed",   amount: "JOD 450", payment: "Paid" },
+  { id: "#HY-2024-082", customer: "Sarah Rahman",     taskType: "Pest Control", service: "Pest Control",   provider: "Unassigned", date: "Today, 12:00 PM", status: "Pending",     amount: "JOD 250", payment: "Pending" },
+  { id: "#HY-2024-083", customer: "Mohammed N.",      taskType: "Maintenance",  service: "AC Maintenance", provider: "Ali M.",     date: "Today, 02:15 PM", status: "In Progress", amount: "JOD 300", payment: "Paid" },
+  { id: "#HY-2024-084", customer: "Fatima Saeed",     taskType: "Plumbing",     service: "Plumbing",       provider: "Hassan T.",  date: "Tomorrow, 09:00", status: "Pending",     amount: "JOD 150", payment: "Pending" },
+  { id: "#HY-2024-085", customer: "Khalid Basheer",   taskType: "Painting",     service: "Painting",       provider: "Ibrahim W.", date: "Oct 24, 10:00 AM",status: "Completed",   amount: "JOD 850", payment: "Paid" },
+  { id: "#HY-2024-086", customer: "Aisha Al-Dosari",  taskType: "Cleaning",     service: "Deep Cleaning",  provider: "Omar K.",    date: "Oct 24, 01:30 PM",status: "Cancelled",   amount: "JOD 450", payment: "Refunded" },
+  { id: "#HY-2024-087", customer: "Omar Tariq",       taskType: "Maintenance",  service: "AC Maintenance", provider: "Ali M.",     date: "Oct 23, 11:00 AM",status: "Completed",   amount: "JOD 300", payment: "Paid" },
+  { id: "#HY-2024-088", customer: "Leena Mansour",    taskType: "Pest Control", service: "Pest Control",   provider: "Khaled S.",  date: "Oct 23, 03:45 PM",status: "Completed",   amount: "JOD 250", payment: "Paid" },
+];
+
+
+type SortCol = "id" | "customer" | "tasktype" | "service" | "date" | "status";
+type SortDir = "asc" | "desc";
+
+function SortIcon({ col, sortCol, sortDir }: { col: SortCol; sortCol: SortCol | null; sortDir: SortDir }) {
+  if (sortCol !== col) return <ChevronsUpDown className="w-3.5 h-3.5 text-gray-300 ml-1 inline" />;
+  return sortDir === "asc"
+    ? <ChevronUp className="w-3.5 h-3.5 ml-1 inline" style={{ color: "var(--hayyah-blue)" }} />
+    : <ChevronDown className="w-3.5 h-3.5 ml-1 inline" style={{ color: "var(--hayyah-blue)" }} />;
+}
+
+export default function Orders() {
+  const { data: tasks, isLoading, isError, error, refetch } = useTasks();
+  const { data: metrics } = useDashboardMetrics();
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedRows, setSelectedRows] = useState<string[]>([]);
+  const [sortCol, setSortCol] = useState<SortCol | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+
+  function handleSort(col: SortCol) {
+    if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc");
+    else { setSortCol(col); setSortDir("asc"); }
+  }
+
+  const tasksByState = (metrics?.tasksByState ?? {}) as Record<string, number>;
+  const statTabs = [
+    { label: "Total",            value: metrics?.totalTaskCount as number | undefined,  color: "#0d2270" },
+    { label: "New",              value: tasksByState["NEW"],                              color: "#7c3aed" },
+    { label: "Awaiting Payment", value: tasksByState["AWAITING_PAYMENT"],                color: "#d97706" },
+    { label: "Fulfilling",       value: tasksByState["FULFILLING"],                      color: "#0088fb" },
+    { label: "Fulfilled",        value: tasksByState["FULFILLED"],                       color: "#059669" },
+    { label: "Canceled",         value: tasksByState["CANCELED"],                        color: "#dc2626" },
+  ];
+
+  const hasTasks = !isLoading && !isError && tasks && tasks.length > 0;
+
+  const apiOrders = useMemo(() => {
+    if (!tasks) return [];
+    return tasks.map(t => ({
+      id: t.id,
+      customer: t.customerName ?? "—",
+      service: t.description ?? "Service",
+      taskType: t.title ?? "—",
+      provider: "Unassigned",
+      date: formatDate(t.taskDateTime),
+      status: t.orderStatus ?? "NEW",
+      amount: "JOD —",
+      payment: "—",
+    }));
+  }, [tasks]);
+
+  const orders = hasTasks ? apiOrders : MOCK_ORDERS;
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    const rows = orders.filter(o => {
+      const matchSearch = !q || o.customer.toLowerCase().includes(q) || o.service.toLowerCase().includes(q) || o.id.toLowerCase().includes(q);
+      const matchStatus = statusFilter === "all" || o.status === statusFilter;
+      return matchSearch && matchStatus;
+    });
+    if (!sortCol) return rows;
+    return [...rows].sort((a, b) => {
+      let av = "", bv = "";
+      if (sortCol === "id")       { av = a.id;                            bv = b.id; }
+      if (sortCol === "customer") { av = a.customer;                      bv = b.customer; }
+      if (sortCol === "tasktype") { av = (a as any).taskType ?? "";        bv = (b as any).taskType ?? ""; }
+      if (sortCol === "service")  { av = a.service;                       bv = b.service; }
+      if (sortCol === "date")     { av = a.date;                          bv = b.date; }
+      if (sortCol === "status")   { av = a.status;                        bv = b.status; }
+      return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+    });
+  }, [orders, search, statusFilter, sortCol, sortDir]);
+
+  const selectedOrder = MOCK_ORDERS.find(o => o.id === selectedId);
+
+  const toggleRow = (id: string) => setSelectedRows(prev => prev.includes(id) ? prev.filter(r => r !== id) : [...prev, id]);
+  const toggleAll = () => setSelectedRows(selectedRows.length === filtered.length ? [] : filtered.map(o => o.id));
+
+  return (
+    <AppLayout activeNav="orders">
+      <div className="flex h-full gap-6 relative" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+        <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${selectedId ? "lg:pr-[420px]" : ""}`}>
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold" style={{ color: "var(--hayyah-navy)" }}>Orders</h1>
+            <p className="text-gray-500 text-sm mt-1 mb-4">Manage and track all service orders</p>
+            <div className="flex flex-wrap gap-3">
+              {statTabs.map((s) => (
+                <div key={s.label} className="rounded-xl bg-white shadow-sm flex-1 min-w-[110px] px-4 py-3">
+                  <span className="text-xs font-semibold text-gray-500 uppercase">{s.label}</span>
+                  <div className="text-xl font-bold mt-1" style={{ color: s.color }}>
+                    {s.value !== undefined ? s.value.toLocaleString() : <span className="text-gray-300 text-sm">—</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-2xl bg-white shadow-sm flex flex-col overflow-hidden relative" style={{ minHeight: 0 }}>
+            {/* Bulk bar */}
+            {selectedRows.length > 0 && (
+              <div className="absolute top-0 left-0 right-0 z-20 text-white p-3 flex items-center justify-between px-6" style={{ background: "var(--hayyah-navy)" }}>
+                <span className="text-sm font-medium">{selectedRows.length} orders selected</span>
+                <div className="flex gap-2">
+                  <button className="px-3 py-1 rounded-lg text-sm" style={{ background: "rgba(255,255,255,0.1)" }}>Assign Provider</button>
+                  <button className="px-3 py-1 rounded-lg text-sm flex items-center gap-1" style={{ background: "rgba(255,255,255,0.1)" }}>
+                    <Download className="w-3.5 h-3.5" /> Export
+                  </button>
+                  <button className="px-3 py-1 rounded-lg text-sm" style={{ background: "rgba(239,68,68,0.2)", color: "#fca5a5" }}>Cancel Selected</button>
+                </div>
+              </div>
+            )}
+
+            {/* Filter bar */}
+            <div className="p-4 border-b border-gray-100 flex flex-wrap gap-3 items-center z-10">
+              <div className="relative w-full sm:w-64">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search orders..." className="w-full pl-9 pr-4 py-2 bg-gray-50 rounded-xl text-sm outline-none border-0" />
+              </div>
+              <button className="flex items-center gap-2 px-3 py-2 rounded-xl border text-sm text-gray-600 bg-white" style={{ borderColor: "#e2e8f0" }}>
+                <Calendar className="w-4 h-4" /> Date Range
+              </button>
+              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-3 py-2 rounded-xl border text-sm text-gray-600 outline-none bg-white" style={{ borderColor: "#e2e8f0" }}>
+                <option value="all">All Status</option>
+                <option value="NEW">New</option>
+                <option value="AWAITING_PAYMENT">Awaiting Payment</option>
+                <option value="PAID">Paid</option>
+                <option value="FULFILLING">Fulfilling</option>
+                <option value="FULFILLED">Fulfilled</option>
+                <option value="CANCELED">Canceled</option>
+                <option value="REFUNDED">Refunded</option>
+              </select>
+            </div>
+
+            {/* Loading/Error states */}
+            {isLoading && (
+              <div className="p-12 flex justify-center">
+                <Loader2 className="w-8 h-8 animate-spin" style={{ color: "var(--hayyah-blue)" }} />
+              </div>
+            )}
+            {isError && (
+              <div className="p-6 flex items-center gap-3 bg-amber-50 border-b border-amber-100">
+                <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-amber-800">Live order data unavailable — showing sample data</p>
+                  <p className="text-xs text-amber-600 mt-0.5">{error?.message}</p>
+                </div>
+                <button onClick={() => refetch()} className="text-xs font-medium text-amber-700 hover:underline">Retry</button>
+              </div>
+            )}
+
+            {/* Table */}
+            <div className="flex-1 overflow-auto">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-white z-10" style={{ boxShadow: "0 1px 0 #f3f4f6" }}>
+                  <tr>
+                    <th className="w-12 px-4 py-3 text-left">
+                      <input type="checkbox" checked={selectedRows.length === filtered.length && filtered.length > 0} onChange={toggleAll} className="rounded" />
+                    </th>
+                    {(["id","customer","tasktype","service","date","amount","status","actions"] as const).map((col) => {
+                      const label: Record<string, string> = { id: "Order ID", customer: "Customer", tasktype: "Task Type", service: "Service & Provider", date: "Schedule", amount: "Amount", status: "Status", actions: "" };
+                      const sortable = (["id","customer","tasktype","service","date","status"] as const).includes(col as SortCol);
+                      return (
+                        <th key={col} className={`font-semibold text-gray-500 py-3 px-4 text-left select-none ${sortable ? "cursor-pointer hover:text-gray-800" : ""}`}
+                          onClick={() => sortable && handleSort(col as SortCol)}>
+                          {label[col]}
+                          {sortable && <SortIcon col={col as SortCol} sortCol={sortCol} sortDir={sortDir} />}
+                        </th>
+                      );
+                    })}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((order) => (
+                    <tr key={order.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors" style={{ background: selectedRows.includes(order.id) ? "rgba(0,136,251,0.04)" : undefined }}>
+                      <td className="px-4 py-3">
+                        <input type="checkbox" checked={selectedRows.includes(order.id)} onChange={() => toggleRow(order.id)} className="rounded" />
+                      </td>
+                      <td className="py-3 px-4 font-medium whitespace-nowrap" style={{ color: "var(--hayyah-navy)" }}>
+                        <span className="font-mono text-xs">{order.id}</span>
+                      </td>
+                      <td className="py-3 px-4 font-medium text-gray-900">{order.customer}</td>
+                      <td className="py-3 px-4 text-sm text-gray-600">{"taskType" in order ? (order as any).taskType || "—" : "—"}</td>
+                      <td className="py-3 px-4">
+                        <div className="font-medium text-sm text-gray-800">{order.service}</div>
+                        <div className={`text-xs mt-0.5 ${order.provider === "Unassigned" ? "text-amber-600 font-medium" : "text-gray-500"}`}>{order.provider}</div>
+                      </td>
+                      <td className="py-3 px-4 text-gray-600">{order.date}</td>
+                      <td className="py-3 px-4">
+                        <div className="font-medium text-gray-900">{order.amount}</div>
+                        {"payment" in order && (
+                          <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 mt-0.5">{(order as any).payment}</div>
+                        )}
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusBadge(order.status)}`}>{getStatusLabel(order.status)}</span>
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <button className="p-1.5 rounded-lg text-gray-400 hover:text-[var(--hayyah-blue)] transition-colors" onClick={() => setSelectedId(order.id === selectedId ? null : order.id)}>
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button className="p-1.5 rounded-lg text-gray-400 hover:text-gray-900 transition-colors">
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        {/* Order Detail Drawer */}
+        {selectedId && (
+          <div className="fixed inset-y-0 right-0 w-[400px] bg-white shadow-2xl border-l border-gray-100 z-50 flex flex-col lg:absolute lg:right-0 lg:top-0 lg:bottom-0 lg:rounded-2xl lg:border lg:shadow-md" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+            {(() => {
+              const order = selectedOrder ?? filtered.find(o => o.id === selectedId);
+              if (!order) return null;
+              return (
+                <>
+                  <div className="p-5 flex items-center justify-between border-b border-gray-100 bg-gray-50/50 rounded-t-2xl">
+                    <div>
+                      <h2 className="text-lg font-bold" style={{ color: "var(--hayyah-navy)" }}>Order {order.id}</h2>
+                      <div className="mt-2 flex items-center gap-2">
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusBadge(order.status)}`}>{getStatusLabel(order.status)}</span>
+                        <span className="text-sm text-gray-500">• {order.date}</span>
+                      </div>
+                    </div>
+                    <button className="p-1.5 rounded-full bg-white shadow-sm text-gray-400 hover:text-gray-600" onClick={() => setSelectedId(null)}>
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto p-6 space-y-8">
+                    {/* Timeline */}
+                    <div>
+                      <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">Order Status</h3>
+                      <div className="relative pl-3 space-y-6" style={{ borderLeft: "2px solid #f3f4f6", marginLeft: 15 }}>
+                        {["Order Booked", "Provider Assigned", "In Progress", "Completed"].map((step, idx) => {
+                          const statuses = ["Pending", "In Progress", "Completed"];
+                          const stepOrder = idx;
+                          const currentStep = order.status === "Completed" ? 3 : order.status === "In Progress" ? 2 : order.status === "Cancelled" ? -1 : 1;
+                          const done = stepOrder < currentStep || (order.status === "Completed" && stepOrder === 3);
+                          return (
+                            <div key={step} className="relative flex gap-4" style={{ marginLeft: -22 }}>
+                              <div className="w-[10px] h-[10px] rounded-full ring-4 ring-white z-10 flex-shrink-0 mt-1" style={{ background: done ? "#10b981" : order.status === "Cancelled" ? "#d1d5db" : "#d1d5db" }} />
+                              <div>
+                                <p className={`text-sm font-bold ${done ? "text-gray-900" : "text-gray-400"}`}>{step}</p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="border-t border-gray-100 pt-6">
+                      <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">Service Details</h3>
+                      <div className="bg-gray-50 rounded-xl p-4 space-y-4">
+                        <div className="flex items-start gap-3">
+                          <Wrench className="w-4 h-4 text-gray-400 mt-0.5" />
+                          <div>
+                            <p className="text-xs text-gray-500">Service Type</p>
+                            <p className="text-sm font-medium text-gray-900 mt-0.5">{order.service}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <MapPin className="w-4 h-4 text-gray-400 mt-0.5" />
+                          <div>
+                            <p className="text-xs text-gray-500">Location</p>
+                            <p className="text-sm font-medium text-gray-900 mt-0.5">Al Olaya District, Riyadh</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <User className="w-4 h-4 text-gray-400 mt-0.5" />
+                          <div>
+                            <p className="text-xs text-gray-500">Customer</p>
+                            <p className="text-sm font-medium mt-0.5" style={{ color: "var(--hayyah-blue)" }}>{order.customer}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="border-t border-gray-100 pt-6">
+                      <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">Payment Summary</h3>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between text-gray-600">
+                          <span>Service Fee</span><span>{order.amount}</span>
+                        </div>
+                        <div className="flex justify-between text-gray-600">
+                          <span>VAT (15%)</span><span>—</span>
+                        </div>
+                        <div className="border-t border-dashed border-gray-200 mt-2 pt-2 flex justify-between font-bold text-gray-900">
+                          <span>Total</span><span>{order.amount}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-4 border-t border-gray-100 bg-gray-50 rounded-b-2xl">
+                    {order.status === "Pending" ? (
+                      <button className="w-full py-2 rounded-xl text-sm font-semibold text-white shadow-sm" style={{ background: "var(--hayyah-blue)" }}>Assign Provider</button>
+                    ) : order.status === "Completed" ? (
+                      <button className="w-full py-2 rounded-xl border text-sm font-medium bg-white" style={{ borderColor: "#e2e8f0" }}>Download Invoice</button>
+                    ) : (
+                      <div className="flex gap-3">
+                        <button className="flex-1 py-2 rounded-xl border text-sm font-medium bg-white text-red-600" style={{ borderColor: "#e2e8f0" }}>Cancel Order</button>
+                        <button className="flex-1 py-2 rounded-xl text-sm font-semibold text-white shadow-sm" style={{ background: "var(--hayyah-blue)" }}>Contact Provider</button>
+                      </div>
+                    )}
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        )}
+      </div>
+    </AppLayout>
+  );
+}

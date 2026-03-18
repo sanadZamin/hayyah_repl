@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const AUTH_KEY = "hayyah_auth";
 const TOKEN_KEY = "hayyah_token";
 
 const TOKEN_URL = "/api/auth/token";
 const CLIENT_ID = "web_client";
-const CLIENT_SECRET = "Vd8dMXpixGDMxFi0JJDoB0l3Pb7ThnLN";
+const CLIENT_SECRET = import.meta.env.VITE_CLIENT_SECRET ?? "";
 
 export interface AuthUser {
   email: string;
@@ -17,6 +17,7 @@ export interface TokenData {
   access_token: string;
   refresh_token?: string;
   expires_in?: number;
+  refresh_expires_in?: number;
 }
 
 function parseJwt(token: string): Record<string, unknown> {
@@ -37,6 +38,15 @@ export function useAuth() {
       return null;
     }
   });
+
+  // Listen for forced logout from token refresh failures
+  useEffect(() => {
+    const handleLogout = () => {
+      setUser(null);
+    };
+    window.addEventListener("hayyah:logout", handleLogout);
+    return () => window.removeEventListener("hayyah:logout", handleLogout);
+  }, []);
 
   const login = async (username: string, password: string): Promise<{ success: boolean; error?: string }> => {
     const body = new URLSearchParams({

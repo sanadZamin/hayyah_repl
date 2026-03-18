@@ -1,0 +1,62 @@
+ => ERROR [web builder 10/10] RUN pnpm --filter @workspace/hayyah-crm run build                                                                                                                                                                                        0.8s
+------
+ > [web builder 10/10] RUN pnpm --filter @workspace/hayyah-crm run build:
+0.617 
+0.617 > @workspace/hayyah-crm@0.0.0 build /app/artifacts/hayyah-crm
+0.617 > vite build --config vite.config.ts
+0.617 
+0.703 /app/node_modules/.pnpm/rollup@4.59.0/node_modules/rollup/dist/native.js:115
+0.703           throw new Error(
+0.703                 ^
+0.703 
+0.703 Error: Cannot find module @rollup/rollup-linux-arm64-musl. npm has a bug related to optional dependencies (https://github.com/npm/cli/issues/4828). Please try `npm i` again after removing both package-lock.json and node_modules directory.
+0.703     at requireWithFriendlyError (/app/node_modules/.pnpm/rollup@4.59.0/node_modules/rollup/dist/native.js:115:9)
+0.703     at Object.<anonymous> (/app/node_modules/.pnpm/rollup@4.59.0/node_modules/rollup/dist/native.js:124:76)
+0.703     ... 3 lines matching cause stack trace ...
+0.703     at Module._load (node:internal/modules/cjs/loader:1091:12)
+0.703     at cjsLoader (node:internal/modules/esm/translators:298:15)
+0.703     at ModuleWrap.<anonymous> (node:internal/modules/esm/translators:240:7)
+0.703     at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+0.703     at async ModuleLoader.import (node:internal/modules/esm/loader:606:24) {
+0.703   [cause]: Error: Cannot find module '@rollup/rollup-linux-arm64-musl'
+0.703   Require stack:
+0.703   - /app/node_modules/.pnpm/rollup@4.59.0/node_modules/rollup/dist/native.js
+0.703       at Module._resolveFilename (node:internal/modules/cjs/loader:1207:15)
+0.703       at Module._load (node:internal/modules/cjs/loader:1038:27)
+0.703       at Module.require (node:internal/modules/cjs/loader:1289:19)
+0.703       at require (node:internal/modules/helpers:182:18)
+0.703       at requireWithFriendlyError (/app/node_modules/.pnpm/rollup@4.59.0/node_modules/rollup/dist/native.js:97:10)
+0.703       at Object.<anonymous> (/app/node_modules/.pnpm/rollup@4.59.0/node_modules/rollup/dist/native.js:124:76)
+0.703       at Module._compile (node:internal/modules/cjs/loader:1521:14)
+0.703       at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)
+0.703       at Module.load (node:internal/modules/cjs/loader:1266:32)
+0.703       at Module._load (node:internal/modules/cjs/loader:1091:12) {
+0.703     code: 'MODULE_NOT_FOUND',
+0.703     requireStack: [
+0.703       '/app/node_modules/.pnpm/rollup@4.59.0/node_modules/rollup/dist/native.js'
+0.703     ]
+0.703   }
+0.703 }
+0.703 
+0.703 Node.js v20.20.1
+0.728 /app/artifacts/hayyah-crm:
+0.728  ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @workspace/hayyah-crm@0.0.0 build: `vite build --config vite.config.ts`
+0.728 Exit status 1
+------
+Dockerfile.web:15
+
+--------------------
+
+  13 |     ARG VITE_CLIENT_SECRET
+
+  14 |     ENV VITE_CLIENT_SECRET=$VITE_CLIENT_SECRET
+
+  15 | >>> RUN pnpm --filter @workspace/hayyah-crm run build
+
+  16 |     
+
+  17 |     FROM nginx:alpine
+
+--------------------
+
+target web: failed to solve: process "/bin/sh -c pnpm --filter @workspace/hayyah-crm run build" did not complete successfully: exit code: 1

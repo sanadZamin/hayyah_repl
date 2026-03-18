@@ -31,6 +31,23 @@ async function curlGet(url: string, token: string): Promise<{ status: number; da
   return { status, data };
 }
 
+async function curlPost(url: string, token: string, body: string): Promise<{ status: number; data: string }> {
+  const { stdout } = await execFileAsync("curl", [
+    "-s", "-o", "-", "-w", "\n__STATUS__%{http_code}",
+    "-X", "POST", url,
+    "-H", `Authorization: Bearer ${token}`,
+    "-H", "Content-Type: application/json",
+    "-H", "Accept: application/json",
+    "-H", "Origin: https://hayyah.me",
+    "-H", "Referer: https://hayyah.me/",
+    "--data-raw", body,
+  ]);
+  const splitIdx = stdout.lastIndexOf("\n__STATUS__");
+  const data = stdout.slice(0, splitIdx);
+  const status = parseInt(stdout.slice(splitIdx + "\n__STATUS__".length), 10) || 502;
+  return { status, data };
+}
+
 router.get("/tasks", async (req, res) => {
   const auth = req.headers.authorization;
   if (!auth || !auth.startsWith("Bearer ")) {
@@ -69,6 +86,28 @@ router.get("/tasks", async (req, res) => {
   let parsed: unknown;
   try { parsed = JSON.parse(lastData); } catch { parsed = { error: "fetch_failed", error_description: lastData || `Status ${lastStatus}` }; }
   res.status(lastStatus).json(parsed);
+});
+
+// Create task
+router.post("/tasks", async (req, res) => {
+  const auth = req.headers.authorization;
+  if (!auth || !auth.startsWith("Bearer ")) {
+    res.status(401).json({ error: "unauthorized" });
+    return;
+  }
+  const token = auth.slice(7);
+
+  try {
+    const payload = JSON.stringify(req.body);
+    const { status, data } = await curlPost(`${BASE_URL}/tasks`, token, payload);
+    console.log(`[tasks] POST ${BASE_URL}/tasks → ${status}${status >= 400 ? ` | ${data.slice(0, 200)}` : ""}`);
+    let parsed: unknown;
+    try { parsed = JSON.parse(data); } catch { parsed = { raw: data }; }
+    res.status(status).json(parsed);
+  } catch (err) {
+    console.error("[tasks] POST error:", err);
+    res.status(502).json({ error: "proxy_error", error_description: "Could not reach task API." });
+  }
 });
 
 export default router;
