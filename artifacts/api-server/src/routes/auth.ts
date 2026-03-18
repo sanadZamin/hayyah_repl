@@ -39,7 +39,15 @@ async function keycloakPost(body: string): Promise<{ status: number; json: unkno
 // Login
 router.post("/auth/token", async (req, res) => {
   try {
-    const body = new URLSearchParams(req.body as Record<string, string>).toString();
+    const params = req.body as Record<string, string>;
+    // Always use server-side secret — never trust an empty secret from the client
+    if (!params.client_secret && CLIENT_SECRET) {
+      params.client_secret = CLIENT_SECRET;
+    }
+    if (!params.client_id) {
+      params.client_id = CLIENT_ID;
+    }
+    const body = new URLSearchParams(params).toString();
     const { status, json } = await keycloakPost(body);
     console.log(`[auth] POST token → ${status}`);
     res.status(status).json(json);
