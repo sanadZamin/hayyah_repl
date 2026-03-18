@@ -1,34 +1,27 @@
 import { Router } from "express";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 
-const execFileAsync = promisify(execFile);
 const router = Router();
 
 const KEYCLOAK_TOKEN_URL = "https://hayyah.me/realms/hayyah/protocol/openid-connect/token";
 const CLIENT_ID = "web_client";
 const CLIENT_SECRET = process.env.KEYCLOAK_CLIENT_SECRET ?? "";
 
-async function curlPost(body: string): Promise<{ status: number; json: unknown }> {
-  const { stdout } = await execFileAsync("curl", [
-    "-s", "-o", "-", "-w", "\n__STATUS__%{http_code}",
-    "-X", "POST", KEYCLOAK_TOKEN_URL,
-    "-H", "Content-Type: application/x-www-form-urlencoded",
-    "--data-raw", body,
-  ]);
-  const splitIdx = stdout.lastIndexOf("\n__STATUS__");
-  const jsonPart = stdout.slice(0, splitIdx);
-  const status = parseInt(stdout.slice(splitIdx + "\n__STATUS__".length), 10) || 502;
+async function keycloakPost(body: string): Promise<{ status: number; json: unknown }> {
+  const res = await fetch(KEYCLOAK_TOKEN_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body,
+  });
   let json: unknown;
-  try { json = JSON.parse(jsonPart); } catch { json = { error: "parse_error", error_description: jsonPart }; }
-  return { status, json };
+  try { json = await res.json(); } catch { json = { error: "parse_error" }; }
+  return { status: res.status, json };
 }
 
 // Login
 router.post("/auth/token", async (req, res) => {
   try {
     const body = new URLSearchParams(req.body as Record<string, string>).toString();
-    const { status, json } = await curlPost(body);
+    const { status, json } = await keycloakPost(body);
     console.log(`[auth] POST token → ${status}`);
     res.status(status).json(json);
   } catch (err) {
@@ -60,7 +53,7 @@ router.post("/auth/refresh", async (req, res) => {
       grant_type: "refresh_token",
       refresh_token,
     }).toString();
-    const { status, json } = await curlPost(body);
+    const { status, json } = await keycloakPost(body);
     console.log(`[auth] POST refresh → ${status}`);
     res.status(status).json(json);
   } catch (err) {
