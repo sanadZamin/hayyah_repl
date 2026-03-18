@@ -70,7 +70,7 @@ export default function Login() {
           </div>
 
           <div className="flex gap-8">
-            {[{ value: "842", label: "Customers" }, { value: "4.8★", label: "Avg. Rating" }, { value: "SAR 128K", label: "Monthly Rev." }].map((stat) => (
+            {[{ value: "842", label: "Customers" }, { value: "4.8★", label: "Avg. Rating" }, { value: "JOD 128K", label: "Monthly Rev." }].map((stat) => (
               <div key={stat.label} className="text-center">
                 <div className="text-2xl font-bold text-white">{stat.value}</div>
                 <div className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.45)" }}>{stat.label}</div>

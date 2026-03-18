@@ -16,11 +16,11 @@ const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov
 const BARS = [40, 60, 45, 80, 55, 90, 100, 75, 85, 120, 95, 110];
 
 const recentOrders = [
-  { id: "#HY-2024-001", customer: "Ahmed Al-Farsi",  service: "Deep Cleaning",  provider: "Omar K.",     status: "Completed",   amount: "SAR 450", date: "Today, 10:30 AM" },
-  { id: "#HY-2024-002", customer: "Sarah R.",         service: "Pest Control",   provider: "Unassigned",  status: "Pending",     amount: "SAR 250", date: "Today, 12:00 PM" },
-  { id: "#HY-2024-003", customer: "Mohammed N.",      service: "AC Maintenance", provider: "Ali M.",      status: "In Progress", amount: "SAR 300", date: "Today, 09:15 AM" },
-  { id: "#HY-2024-004", customer: "Fatima S.",        service: "Deep Cleaning",  provider: "Hassan T.",   status: "Cancelled",   amount: "SAR 450", date: "Yesterday" },
-  { id: "#HY-2024-005", customer: "Khalid B.",        service: "Plumbing",       provider: "Ibrahim W.",  status: "Completed",   amount: "SAR 150", date: "Yesterday" },
+  { id: "#HY-2024-001", customer: "Ahmed Al-Farsi",  service: "Deep Cleaning",  provider: "Omar K.",     status: "Completed",   amount: "JOD 450", date: "Today, 10:30 AM" },
+  { id: "#HY-2024-002", customer: "Sarah R.",         service: "Pest Control",   provider: "Unassigned",  status: "Pending",     amount: "JOD 250", date: "Today, 12:00 PM" },
+  { id: "#HY-2024-003", customer: "Mohammed N.",      service: "AC Maintenance", provider: "Ali M.",      status: "In Progress", amount: "JOD 300", date: "Today, 09:15 AM" },
+  { id: "#HY-2024-004", customer: "Fatima S.",        service: "Deep Cleaning",  provider: "Hassan T.",   status: "Cancelled",   amount: "JOD 450", date: "Yesterday" },
+  { id: "#HY-2024-005", customer: "Khalid B.",        service: "Plumbing",       provider: "Ibrahim W.",  status: "Completed",   amount: "JOD 150", date: "Yesterday" },
 ];
 
 const topProviders = [

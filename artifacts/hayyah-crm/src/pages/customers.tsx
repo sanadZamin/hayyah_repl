@@ -303,7 +303,7 @@ export default function Customers() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-gray-900 truncate">Deep Cleaning Service</p>
-                        <p className="text-xs text-gray-500 mt-0.5">Order #HY-2024-00{idx + 1} • SAR 450</p>
+                        <p className="text-xs text-gray-500 mt-0.5">Order #HY-2024-00{idx + 1} • JOD 450</p>
                         <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
                           <Clock className="w-3 h-3" /> Oct {12 - idx}, 2023
                         </p>

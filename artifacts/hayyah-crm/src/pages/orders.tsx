@@ -42,14 +42,14 @@ function formatDate(ms: number) {
 }
 
 const MOCK_ORDERS = [
-  { id: "#HY-2024-081", customer: "Ahmed Al-Farsi",  service: "Deep Cleaning",  provider: "Omar K.",    date: "Today, 10:30 AM", status: "Completed",   amount: "SAR 450", payment: "Paid" },
-  { id: "#HY-2024-082", customer: "Sarah Rahman",     service: "Pest Control",   provider: "Unassigned", date: "Today, 12:00 PM", status: "Pending",     amount: "SAR 250", payment: "Pending" },
-  { id: "#HY-2024-083", customer: "Mohammed N.",      service: "AC Maintenance", provider: "Ali M.",     date: "Today, 02:15 PM", status: "In Progress", amount: "SAR 300", payment: "Paid" },
-  { id: "#HY-2024-084", customer: "Fatima Saeed",     service: "Plumbing",       provider: "Hassan T.",  date: "Tomorrow, 09:00", status: "Pending",     amount: "SAR 150", payment: "Pending" },
-  { id: "#HY-2024-085", customer: "Khalid Basheer",   service: "Painting",       provider: "Ibrahim W.", date: "Oct 24, 10:00 AM",status: "Completed",   amount: "SAR 850", payment: "Paid" },
-  { id: "#HY-2024-086", customer: "Aisha Al-Dosari",  service: "Deep Cleaning",  provider: "Omar K.",    date: "Oct 24, 01:30 PM",status: "Cancelled",   amount: "SAR 450", payment: "Refunded" },
-  { id: "#HY-2024-087", customer: "Omar Tariq",       service: "AC Maintenance", provider: "Ali M.",     date: "Oct 23, 11:00 AM",status: "Completed",   amount: "SAR 300", payment: "Paid" },
-  { id: "#HY-2024-088", customer: "Leena Mansour",    service: "Pest Control",   provider: "Khaled S.",  date: "Oct 23, 03:45 PM",status: "Completed",   amount: "SAR 250", payment: "Paid" },
+  { id: "#HY-2024-081", customer: "Ahmed Al-Farsi",  service: "Deep Cleaning",  provider: "Omar K.",    date: "Today, 10:30 AM", status: "Completed",   amount: "JOD 450", payment: "Paid" },
+  { id: "#HY-2024-082", customer: "Sarah Rahman",     service: "Pest Control",   provider: "Unassigned", date: "Today, 12:00 PM", status: "Pending",     amount: "JOD 250", payment: "Pending" },
+  { id: "#HY-2024-083", customer: "Mohammed N.",      service: "AC Maintenance", provider: "Ali M.",     date: "Today, 02:15 PM", status: "In Progress", amount: "JOD 300", payment: "Paid" },
+  { id: "#HY-2024-084", customer: "Fatima Saeed",     service: "Plumbing",       provider: "Hassan T.",  date: "Tomorrow, 09:00", status: "Pending",     amount: "JOD 150", payment: "Pending" },
+  { id: "#HY-2024-085", customer: "Khalid Basheer",   service: "Painting",       provider: "Ibrahim W.", date: "Oct 24, 10:00 AM",status: "Completed",   amount: "JOD 850", payment: "Paid" },
+  { id: "#HY-2024-086", customer: "Aisha Al-Dosari",  service: "Deep Cleaning",  provider: "Omar K.",    date: "Oct 24, 01:30 PM",status: "Cancelled",   amount: "JOD 450", payment: "Refunded" },
+  { id: "#HY-2024-087", customer: "Omar Tariq",       service: "AC Maintenance", provider: "Ali M.",     date: "Oct 23, 11:00 AM",status: "Completed",   amount: "JOD 300", payment: "Paid" },
+  { id: "#HY-2024-088", customer: "Leena Mansour",    service: "Pest Control",   provider: "Khaled S.",  date: "Oct 23, 03:45 PM",status: "Completed",   amount: "JOD 250", payment: "Paid" },
 ];
 
 
@@ -99,7 +99,7 @@ export default function Orders() {
       provider: "Unassigned",
       date: formatDate(t.taskDateTime),
       status: t.orderStatus ?? "NEW",
-      amount: "SAR —",
+      amount: "JOD —",
       payment: "—",
     }));
   }, [tasks]);
