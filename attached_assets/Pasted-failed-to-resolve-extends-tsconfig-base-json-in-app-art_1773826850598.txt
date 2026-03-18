@@ -1,0 +1,31 @@
+failed to resolve "extends":"../../tsconfig.base.json" in /app/artifacts/hayyah-crm/tsconfig.json
+1.717 file: /app/artifacts/hayyah-crm/index.html
+1.717     at resolveExtends (file:///app/node_modules/.pnpm/vite@7.3.1_@types+node@25.3.5_jiti@2.6.1_lightningcss@1.31.1_tsx@4.21.0_yaml@2.8.2/node_modules/vite/dist/node/chunks/config.js:5809:8)
+1.717     at parseExtends (file:///app/node_modules/.pnpm/vite@7.3.1_@types+node@25.3.5_jiti@2.6.1_lightningcss@1.31.1_tsx@4.21.0_yaml@2.8.2/node_modules/vite/dist/node/chunks/config.js:5775:71)
+1.717     at parse$13 (file:///app/node_modules/.pnpm/vite@7.3.1_@types+node@25.3.5_jiti@2.6.1_lightningcss@1.31.1_tsx@4.21.0_yaml@2.8.2/node_modules/vite/dist/node/chunks/config.js:5677:23)
+1.717     at async loadTsconfigJsonForFile (file:///app/node_modules/.pnpm/vite@7.3.1_@types+node@25.3.5_jiti@2.6.1_lightningcss@1.31.1_tsx@4.21.0_yaml@2.8.2/node_modules/vite/dist/node/chunks/config.js:6286:37)
+1.717     at async transformWithEsbuild (file:///app/node_modules/.pnpm/vite@7.3.1_@types+node@25.3.5_jiti@2.6.1_lightningcss@1.31.1_tsx@4.21.0_yaml@2.8.2/node_modules/vite/dist/node/chunks/config.js:6086:55)
+1.717     at async Object.transform (file:///app/node_modules/.pnpm/vite@7.3.1_@types+node@25.3.5_jiti@2.6.1_lightningcss@1.31.1_tsx@4.21.0_yaml@2.8.2/node_modules/vite/dist/node/chunks/config.js:6172:20)
+1.717     at async transform (file:///app/node_modules/.pnpm/rollup@4.59.0/node_modules/rollup/dist/es/shared/node-entry.js:21269:16)
+1.717     at async ModuleLoader.addModuleSource (file:///app/node_modules/.pnpm/rollup@4.59.0/node_modules/rollup/dist/es/shared/node-entry.js:21497:36)
+1.744 /app/artifacts/hayyah-crm:
+1.744  ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @workspace/hayyah-crm@0.0.0 build: `vite build --config vite.config.ts`
+1.744 Exit status 1
+------
+Dockerfile.web:18
+
+--------------------
+
+  16 |     ENV BASE_PATH=/
+
+  17 |     
+
+  18 | >>> RUN pnpm --filter @workspace/hayyah-crm run build
+
+  19 |     
+
+  20 |     FROM nginx:alpine
+
+--------------------
+
+target web: failed to solve: process "/bin/sh -c pnpm --filter @workspace/hayyah-crm run build" did not complete successfully: exit code: 1
