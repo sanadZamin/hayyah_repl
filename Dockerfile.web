@@ -14,7 +14,8 @@ RUN pnpm install --filter @workspace/hayyah-crm...
 ARG VITE_CLIENT_SECRET
 ENV VITE_CLIENT_SECRET=$VITE_CLIENT_SECRET
 ENV PORT=3000
-ENV BASE_PATH=/
+ARG BASE_PATH=/frontend/
+ENV BASE_PATH=/frontend/
 
 RUN pnpm --filter @workspace/hayyah-crm run build
 
