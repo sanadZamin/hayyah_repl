@@ -32,6 +32,11 @@ export function AppLayout({ children, activeNav = "dashboard" }: AppLayoutProps)
   const [, setLocation] = useLocation();
   const { user, logout } = useAuth();
 
+  const handleLogout = () => {
+    logout();
+    setLocation("/login");
+  };
+
   const nameParts = (user?.name ?? user?.username ?? "").trim().split(" ");
   const initials = nameParts.length >= 2
     ? (nameParts[0][0] + nameParts[nameParts.length - 1][0]).toUpperCase()
@@ -109,7 +114,7 @@ export function AppLayout({ children, activeNav = "dashboard" }: AppLayoutProps)
           <button
             className="w-full flex items-center gap-3 px-2 py-2 rounded-xl transition-all hover:bg-white/5"
             style={{ color: "rgba(255,255,255,0.5)" }}
-            onClick={logout}
+            onClick={handleLogout}
           >
             <div
               className="flex items-center justify-center rounded-full flex-shrink-0 text-white font-semibold text-sm"
