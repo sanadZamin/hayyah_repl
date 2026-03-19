@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { X, ChevronDown, Calendar, MapPin, Wrench, FileText, CheckCircle2, Loader2, AlertCircle, Home, BedDouble, Timer, Search, User } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useUsers, type HayyahUser } from "@/hooks/use-users";
+import { apiFetch } from "@/lib/api-fetch";
 
 function getDisplayName(u: HayyahUser): string {
   const full = `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim();
@@ -156,14 +157,10 @@ export function NewOrderDialog({ open, onClose }: NewOrderDialogProps) {
     setSubmitting(true);
     setSubmitError(null);
     try {
-      const token = getToken();
       const payload = buildPayload();
-      const res = await fetch("/api/tasks", {
+      const res = await apiFetch("/api/tasks", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
       const data = await res.json().catch(() => ({}));
