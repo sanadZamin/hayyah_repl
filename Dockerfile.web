@@ -14,6 +14,7 @@ RUN pnpm install --filter @workspace/hayyah-crm...
 ARG VITE_CLIENT_SECRET
 ENV VITE_CLIENT_SECRET=$VITE_CLIENT_SECRET
 ENV PORT=3000
+ENV NODE_ENV=production
 ARG BASE_PATH=/frontend/
 ENV BASE_PATH=/frontend/
 
