@@ -121,7 +121,7 @@ export default function Login() {
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="text-sm font-semibold" style={{ color: "#374151" }}>Password</label>
-                <button type="button" className="text-xs font-medium" style={{ color: "var(--hayyah-blue, #0088fb)" }}>Forgot password?</button>
+                <button type="button" tabIndex={-1} className="text-xs font-medium" style={{ color: "var(--hayyah-blue, #0088fb)" }}>Forgot password?</button>
               </div>
               <div className="relative">
                 <input
