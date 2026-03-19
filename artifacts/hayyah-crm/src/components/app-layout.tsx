@@ -57,13 +57,13 @@ export function AppLayout({ children, activeNav = "dashboard" }: AppLayoutProps)
         >
           {sidebarOpen ? (
             <img
-              src={`${import.meta.env.BASE_URL}images/hayyah-wordmark-white.png`}
+              src="/images/hayyah-wordmark-white.png"
               alt="hayyah"
               style={{ height: 32, width: "auto", flexShrink: 0 }}
             />
           ) : (
             <img
-              src={`${import.meta.env.BASE_URL}images/hayyah-icon-white.png`}
+              src="/images/hayyah-icon-white.png"
               alt="hayyah"
               style={{ height: 36, width: 36, flexShrink: 0, objectFit: "contain" }}
             />

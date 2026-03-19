@@ -42,14 +42,14 @@ export default function Login() {
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] rounded-full opacity-5" style={{ background: "var(--hayyah-blue, #0088fb)" }} />
 
         <div className="relative z-10 flex items-center gap-3">
-          <img src={`${import.meta.env.BASE_URL}images/hayyah-wordmark-white.png`} alt="hayyah" style={{ height: 40, width: "auto" }} />
+          <img src="/images/hayyah-wordmark-white.png" alt="hayyah" style={{ height: 40, width: "auto" }} />
           <div className="text-sm font-medium ml-1" style={{ color: "rgba(255,255,255,0.4)", letterSpacing: "0.12em" }}>CRM</div>
         </div>
 
         <div className="relative z-10 flex flex-col items-center text-center gap-8 px-8">
           <div className="relative">
             <div className="flex items-center justify-center rounded-3xl" style={{ width: 180, height: 180, background: "rgba(0,136,251,0.15)", border: "1px solid rgba(0,136,251,0.3)" }}>
-              <img src={`${import.meta.env.BASE_URL}images/hayyah-icon-white.png`} alt="Hayyah" style={{ width: 80, height: 80, objectFit: "contain" }} />
+              <img src="/images/hayyah-icon-white.png" alt="Hayyah" style={{ width: 80, height: 80, objectFit: "contain" }} />
             </div>
             <div className="absolute -top-4 -right-8 flex items-center gap-2 px-4 py-2 rounded-2xl" style={{ background: "rgba(83,255,176,0.15)", border: "1px solid rgba(83,255,176,0.3)" }}>
               <Sparkles className="w-4 h-4" style={{ color: "var(--hayyah-mint, #53ffb0)" }} />
@@ -89,7 +89,7 @@ export default function Login() {
       <div className="flex flex-col justify-center flex-1 px-10 py-12" style={{ background: "#f0f4f8" }}>
         <div className="w-full max-w-sm mx-auto">
           <div className="flex items-center gap-2 mb-10 lg:hidden">
-            <img src={`${import.meta.env.BASE_URL}images/hayyah-wordmark-blue.png`} alt="hayyah" style={{ height: 28, width: "auto" }} />
+            <img src="/images/hayyah-wordmark-blue.png" alt="hayyah" style={{ height: 28, width: "auto" }} />
           </div>
 
           <div className="mb-8">
