@@ -1,0 +1,100 @@
+server {
+    listen 443 ssl;
+    server_name hayyah.me www.hayyah.me;
+
+    ssl_certificate /etc/nginx/ssl/hayya.me/hayyah_me/hayyah_me.fullchain.crt;
+    ssl_certificate_key /etc/nginx/ssl/hayya.me/hayyah.me.key;
+    ssl_trusted_certificate /etc/nginx/ssl/hayya.me/hayyah_me/hayyah_me.ca-bundle;
+
+
+
+location /frontend/ {
+    proxy_pass http://127.0.0.1:88/;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+
+    proxy_hide_header Content-Security-Policy;
+
+    add_header Content-Security-Policy "default-src 'self'; frame-src 'self' https://hayyah.me; connect-src 'self' https://hayyah.me; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; script-src 'self' 'unsafe-inline';" always;
+}
+
+location /assets/ {
+    proxy_pass http://127.0.0.1:88/assets/;
+    proxy_set_header Host $host;
+}
+
+location /images/ {
+    proxy_pass http://127.0.0.1:88/images/;
+    proxy_set_header Host $host;
+}
+
+    location /flowise/ {
+        proxy_pass http://127.0.0.1:8080/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /api/auth/ {
+    proxy_pass http://127.0.0.1:8180;
+    proxy_set_header Host $host;
+}
+
+    location /auth/ {
+        rewrite ^/auth/(.*)$ /$1 break;
+        proxy_pass http://127.0.0.1:8080/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:8070/api/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+
+
+    location /keycloak {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+
+        client_max_body_size 20m;
+    }
+}
+
+server {
+    listen 80;
+    server_name hayyah.me www.hayyah.me;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 80;
+    server_name market-mind.com www.market-mind.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:8888;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
