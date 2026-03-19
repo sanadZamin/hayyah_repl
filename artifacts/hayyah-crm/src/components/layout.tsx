@@ -10,7 +10,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const handleLogout = () => {
     logout();
     // Hard redirect clears all cached state and works reliably across all deployments
-    window.location.href = "/login";
+    window.location.href = import.meta.env.BASE_URL + "login";
   };
 
   const style = {
