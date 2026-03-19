@@ -22,5 +22,5 @@ ENV BASE_PATH=/frontend/
 RUN pnpm --filter @workspace/hayyah-crm run build
 
 FROM nginx:alpine
-COPY --from=builder /app/artifacts/hayyah-crm/dist/public /usr/share/nginx/html/frontend
+COPY --from=builder /app/artifacts/hayyah-crm/dist/public /usr/share/nginx/html
 COPY artifacts/hayyah-crm/nginx.conf /etc/nginx/conf.d/default.conf
