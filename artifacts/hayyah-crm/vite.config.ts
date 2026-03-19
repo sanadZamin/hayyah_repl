@@ -61,6 +61,11 @@ export default defineConfig({
         target: "http://localhost:8080",
         changeOrigin: false,
       },
+      "/frontend/api": {
+        target: "http://localhost:8080",
+        rewrite: (path) => path.replace(/^\/frontend\/api/, "/api"),
+        changeOrigin: false,
+      },
     },
   },
   preview: {

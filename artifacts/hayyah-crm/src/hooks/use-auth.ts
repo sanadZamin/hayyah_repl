@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
+import { apiUrl } from "@/lib/api-url";
 
 const AUTH_KEY = "hayyah_auth";
 const TOKEN_KEY = "hayyah_token";
 
-const TOKEN_URL = "/api/auth/token";
+const TOKEN_URL = apiUrl("/auth/token");
 const CLIENT_ID = "web_client";
 const CLIENT_SECRET = import.meta.env.VITE_CLIENT_SECRET ?? "";
 

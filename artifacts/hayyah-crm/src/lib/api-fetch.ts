@@ -1,3 +1,5 @@
+import { apiUrl } from "./api-url";
+
 const TOKEN_KEY = "hayyah_token";
 const AUTH_KEY = "hayyah_auth";
 const CLIENT_ID = "web_client";
@@ -40,7 +42,7 @@ async function refreshAccessToken(): Promise<string | null> {
   }
 
   try {
-    const res = await fetch("/api/auth/refresh", {
+    const res = await fetch(apiUrl("/auth/refresh"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -79,8 +81,15 @@ export async function apiFetch(input: RequestInfo, init: RequestInit = {}): Prom
   const tokenData = getTokenData();
   const token = tokenData?.access_token ?? "";
 
+  // Rewrite root-relative /api/* paths to go through the app's base URL
+  // e.g. /api/tasks → /frontend/api/tasks so the reverse proxy routes correctly
+  const url: RequestInfo =
+    typeof input === "string" && input.startsWith("/api/")
+      ? apiUrl(input.slice(4))
+      : input;
+
   const makeRequest = (t: string) =>
-    fetch(input, {
+    fetch(url, {
       ...init,
       headers: {
         Accept: "application/json",
