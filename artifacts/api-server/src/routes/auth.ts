@@ -1,18 +1,23 @@
 import { Router } from "express";
 import { request as httpsRequest } from "node:https";
+import { request as httpRequest } from "node:http";
 
 const router = Router();
 
-const KEYCLOAK_TOKEN_URL = "https://hayyah.me/realms/hayyah/protocol/openid-connect/token";
+const KEYCLOAK_TOKEN_URL =
+  process.env.KEYCLOAK_TOKEN_URL ??
+  "https://hayyah.me/realms/hayyah/protocol/openid-connect/token";
 const CLIENT_ID = "web_client";
 const CLIENT_SECRET = process.env.KEYCLOAK_CLIENT_SECRET ?? "";
 
 async function keycloakPost(body: string): Promise<{ status: number; json: unknown }> {
   return new Promise((resolve, reject) => {
     const url = new URL(KEYCLOAK_TOKEN_URL);
-    const req = httpsRequest(
+    const requestFn = url.protocol === "https:" ? httpsRequest : httpRequest;
+    const req = requestFn(
       {
         hostname: url.hostname,
+        port: url.port || (url.protocol === "https:" ? 443 : 80),
         path: url.pathname + url.search,
         method: "POST",
         headers: {
