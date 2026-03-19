@@ -10,7 +10,7 @@ const port = Number(rawPort);
 if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
-
+console.log('node env', process.env.NODE_ENV, 'base path', process.env.BASE_PATH, 'port', port, 'is production', process.env.NODE_ENV === "production", 'repl id', process.env.REPL_ID,');
 const isProduction = process.env.NODE_ENV === "production";
 const basePath = process.env.BASE_PATH ?? (isProduction ? "/frontend/" : "/");
 
