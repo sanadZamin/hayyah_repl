@@ -13,13 +13,15 @@ const CLIENT_SECRET = process.env.KEYCLOAK_CLIENT_SECRET ?? "";
 async function keycloakPost(body: string): Promise<{ status: number; json: unknown }> {
   return new Promise((resolve, reject) => {
     const url = new URL(KEYCLOAK_TOKEN_URL);
-    const requestFn = url.protocol === "https:" ? httpsRequest : httpRequest;
+    const isHttps = url.protocol === "https:";
+    const requestFn = isHttps ? httpsRequest : httpRequest;
     const req = requestFn(
       {
         hostname: url.hostname,
-        port: url.port || (url.protocol === "https:" ? 443 : 80),
+        port: url.port || (isHttps ? 443 : 80),
         path: url.pathname + url.search,
         method: "POST",
+        ...(isHttps ? { rejectUnauthorized: false } : {}),
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
           "Content-Length": Buffer.byteLength(body),
@@ -56,9 +58,9 @@ router.post("/auth/token", async (req, res) => {
     const { status, json } = await keycloakPost(body);
     console.log(`[auth] POST token → ${status}`);
     res.status(status).json(json);
-  } catch (err) {
-    console.error("[auth] token error:", err);
-    res.status(502).json({ error: "proxy_error", error_description: "Could not reach authentication server." });
+  } catch (err: any) {
+    console.error("[auth] token error:", err?.message ?? err);
+    res.status(502).json({ error: "proxy_error", error_description: `Could not reach authentication server: ${err?.message ?? "unknown error"}` });
   }
 });
 
@@ -88,9 +90,9 @@ router.post("/auth/refresh", async (req, res) => {
     const { status, json } = await keycloakPost(body);
     console.log(`[auth] POST refresh → ${status}`);
     res.status(status).json(json);
-  } catch (err) {
-    console.error("[auth] refresh error:", err);
-    res.status(502).json({ error: "proxy_error", error_description: "Could not reach authentication server." });
+  } catch (err: any) {
+    console.error("[auth] refresh error:", err?.message ?? err);
+    res.status(502).json({ error: "proxy_error", error_description: `Could not reach authentication server: ${err?.message ?? "unknown error"}` });
   }
 });
 
