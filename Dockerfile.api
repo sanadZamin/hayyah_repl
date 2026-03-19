@@ -1,0 +1,23 @@
+FROM --platform=linux/amd64 node:20-slim
+
+# Install curl — required by the auth route to call Keycloak
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+
+RUN npm install -g pnpm tsx
+
+WORKDIR /app
+COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
+COPY tsconfig.base.json ./
+COPY lib ./lib
+COPY artifacts/api-server ./artifacts/api-server
+
+RUN pnpm install --filter @workspace/api-server...
+
+RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
+
+ENV NODE_OPTIONS=--insecure-http-parser
+ENV NODE_ENV=production
+ENV PORT=8080
+
+WORKDIR /app/artifacts/api-server
+CMD ["tsx", "./src/index.ts"]

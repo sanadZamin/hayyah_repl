@@ -1,0 +1,25 @@
+services:
+  api:
+    image: altshiftcreative/hayyah-api:1.0.0
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    ports:
+      - "8080:8080"
+    environment:
+      KEYCLOAK_CLIENT_SECRET: Vd8dMXpixGDMxFi0JJDoB0l3Pb7ThnLN
+      DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/placeholder
+      PORT: 8080
+
+  web:
+    image: altshiftcreative/hayyah-web:1.0.0
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+      args:
+        VITE_CLIENT_SECRET: ${VITE_CLIENT_SECRET}
+    ports:
+      - "80:80"
+    depends_on:
+      - api
