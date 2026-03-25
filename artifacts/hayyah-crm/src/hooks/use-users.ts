@@ -9,6 +9,12 @@ export interface HayyahUser {
   email?: string;
   phone?: string;
   phoneNumber?: string;
+  mobile?: string;
+  mobileNumber?: string;
+  tel?: string;
+  contactNumber?: string;
+  /** Keycloak stores custom fields as { fieldName: string[] } */
+  attributes?: Record<string, string | string[] | undefined>;
   address?: string;
   enabled?: boolean;
   createdTimestamp?: number;

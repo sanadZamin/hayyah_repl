@@ -48,6 +48,20 @@ router.get("/users", async (req, res) => {
     console.log(`[users] GET ${url} → ${status}${status !== 200 ? ` | ${data.slice(0, 200)}` : ""}`);
     let parsed: unknown;
     try { parsed = JSON.parse(data); } catch { parsed = { error: "parse_error" }; }
+    // Log field keys of first user to help identify phone field name
+    if (status === 200) {
+      const arr: unknown[] = Array.isArray(parsed) ? parsed
+        : Array.isArray((parsed as Record<string,unknown>)?.content) ? (parsed as Record<string,unknown>).content as unknown[]
+        : Array.isArray((parsed as Record<string,unknown>)?.data) ? (parsed as Record<string,unknown>).data as unknown[]
+        : [];
+      if (arr.length > 0 && arr[0] && typeof arr[0] === "object") {
+        const keys = Object.keys(arr[0] as Record<string,unknown>);
+        const attrs = (arr[0] as Record<string,unknown>).attributes;
+        const attrKeys = attrs && typeof attrs === "object" ? Object.keys(attrs as Record<string,unknown>) : [];
+        console.log(`[users] first user keys: ${keys.join(", ")}`);
+        if (attrKeys.length > 0) console.log(`[users] first user attributes keys: ${attrKeys.join(", ")}`);
+      }
+    }
     res.status(status).json(parsed);
   } catch (err) {
     console.error("[users] error:", err);

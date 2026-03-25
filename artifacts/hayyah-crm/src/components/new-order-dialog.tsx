@@ -10,7 +10,27 @@ function getDisplayName(u: HayyahUser): string {
 }
 
 function getPhone(u: HayyahUser): string {
-  return u.phone ?? u.phoneNumber ?? "";
+  const raw = u as Record<string, unknown>;
+
+  // Check all common top-level field name variants
+  for (const key of ["phone","phoneNumber","mobile","mobileNumber","tel","contactNumber","cellPhone","mobilePhone"]) {
+    const val = raw[key];
+    if (val && typeof val === "string") return val;
+  }
+
+  // Keycloak stores custom user attributes as { fieldName: string | string[] }
+  const attrs = raw.attributes;
+  if (attrs && typeof attrs === "object" && !Array.isArray(attrs)) {
+    const attrMap = attrs as Record<string, unknown>;
+    for (const key of ["phoneNumber","phone","mobile","mobileNumber","tel","contactNumber","cellPhone","mobilePhone"]) {
+      const val = attrMap[key];
+      if (!val) continue;
+      if (Array.isArray(val) && typeof val[0] === "string") return val[0];
+      if (typeof val === "string") return val;
+    }
+  }
+
+  return "";
 }
 
 // Map UI service names → API serviceType values
