@@ -1,11 +1,11 @@
 import { useState, useMemo } from "react";
 import { AppLayout } from "@/components/app-layout";
-import { useUsers, getPhone, type HayyahUser } from "@/hooks/use-users";
-import { Search, Plus, MoreVertical, Filter, ChevronLeft, ChevronRight, Phone, Mail, MapPin, Star, Clock, CheckCircle2, X, Loader2, AlertCircle, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
+import { useUsers, getPhone, getUsername, type HayyahUser } from "@/hooks/use-users";
+import { Search, Plus, MoreVertical, Filter, ChevronLeft, ChevronRight, Phone, Mail, MapPin, Star, Clock, CheckCircle2, X, Loader2, AlertCircle, ChevronUp, ChevronDown, ChevronsUpDown, User } from "lucide-react";
 
 function getFullName(u: HayyahUser): string {
   if (u.firstName || u.lastName) return `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim();
-  return u.username ?? u.email ?? u.id?.slice(0, 8) ?? "—";
+  return getUsername(u) || u.email || u.id?.slice(0, 8) || "—";
 }
 
 function getInitials(name: string): string {
@@ -52,7 +52,8 @@ export default function Customers() {
       const name = getFullName(u).toLowerCase();
       const email = (u.email ?? "").toLowerCase();
       const phone = getPhone(u).toLowerCase();
-      const matchSearch = !q || name.includes(q) || email.includes(q) || phone.includes(q);
+      const username = getUsername(u).toLowerCase();
+      const matchSearch = !q || name.includes(q) || email.includes(q) || phone.includes(q) || username.includes(q);
       const matchStatus = statusFilter === "all" || getStatus(u).toLowerCase() === statusFilter;
       return matchSearch && matchStatus;
     });
@@ -61,7 +62,7 @@ export default function Customers() {
       let av = "", bv = "";
       if (sortCol === "name")     { av = getFullName(a); bv = getFullName(b); }
       if (sortCol === "email")    { av = a.email ?? ""; bv = b.email ?? ""; }
-      if (sortCol === "username") { av = a.username ?? ""; bv = b.username ?? ""; }
+      if (sortCol === "username") { av = getUsername(a); bv = getUsername(b); }
       if (sortCol === "status")   { av = getStatus(a); bv = getStatus(b); }
       return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
     });
@@ -200,7 +201,7 @@ export default function Customers() {
                               <span className="text-gray-300 text-xs">—</span>
                             )}
                           </td>
-                          <td className="py-4 px-4 text-gray-500 font-mono text-xs">{user.username ?? "—"}</td>
+                          <td className="py-4 px-4 text-gray-500 font-mono text-xs">{getUsername(user) || "—"}</td>
                           <td className="py-4 px-4"><StatusBadge status={status} /></td>
                           <td className="py-4 px-4 text-right">
                             <button className="text-gray-400 hover:text-gray-600 p-1 rounded-lg" onClick={(e) => e.stopPropagation()}>
@@ -277,14 +278,14 @@ export default function Customers() {
                       </div>
                     </div>
                   )}
-                  {selectedUser.username && (
+                  {getUsername(selectedUser) && (
                     <div className="flex items-center gap-3 text-sm">
                       <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-500">
-                        <MapPin className="w-4 h-4" />
+                        <User className="w-4 h-4" />
                       </div>
                       <div>
                         <p className="text-gray-500 text-xs">Username</p>
-                        <p className="font-medium text-gray-900 font-mono">{selectedUser.username}</p>
+                        <p className="font-medium text-gray-900 font-mono">{getUsername(selectedUser)}</p>
                       </div>
                     </div>
                   )}
