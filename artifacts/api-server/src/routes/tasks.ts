@@ -40,6 +40,32 @@ function hayyahGet(url: string, token: string): Promise<{ status: number; data: 
   });
 }
 
+function hayyahDelete(url: string, token: string): Promise<{ status: number; data: string }> {
+  return new Promise((resolve, reject) => {
+    const parsed = new URL(url);
+    const req = httpsRequest(
+      {
+        hostname: parsed.hostname,
+        path: parsed.pathname + parsed.search,
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+          Origin: "https://hayyah.me",
+          Referer: "https://hayyah.me/",
+        },
+      },
+      (res) => {
+        let data = "";
+        res.on("data", (chunk) => { data += chunk; });
+        res.on("end", () => resolve({ status: res.statusCode ?? 502, data }));
+      }
+    );
+    req.on("error", reject);
+    req.end();
+  });
+}
+
 function hayyahPost(url: string, token: string, body: string): Promise<{ status: number; data: string }> {
   return new Promise((resolve, reject) => {
     const parsed = new URL(url);
@@ -124,6 +150,31 @@ router.post("/tasks", async (req, res) => {
     res.status(status).json(parsed);
   } catch (err) {
     console.error("[tasks] POST error:", err);
+    res.status(502).json({ error: "proxy_error", error_description: "Could not reach task API." });
+  }
+});
+
+router.delete("/tasks/:id", async (req, res) => {
+  const auth = req.headers.authorization;
+  if (!auth || !auth.startsWith("Bearer ")) {
+    res.status(401).json({ error: "unauthorized" });
+    return;
+  }
+  const token = auth.slice(7);
+  const { id } = req.params;
+
+  try {
+    const { status, data } = await hayyahDelete(`${BASE_URL}/tasks/${id}`, token);
+    console.log(`[tasks] DELETE ${BASE_URL}/tasks/${id} → ${status}${status >= 400 ? ` | ${data.slice(0, 200)}` : ""}`);
+    if (status === 204 || status === 200) {
+      res.status(status).json({ success: true });
+    } else {
+      let parsed: unknown;
+      try { parsed = JSON.parse(data); } catch { parsed = { error: "delete_failed", error_description: data || `Status ${status}` }; }
+      res.status(status).json(parsed);
+    }
+  } catch (err) {
+    console.error("[tasks] DELETE error:", err);
     res.status(502).json({ error: "proxy_error", error_description: "Could not reach task API." });
   }
 });

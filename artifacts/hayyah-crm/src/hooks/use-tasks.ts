@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-fetch";
 
 export interface Task {
@@ -32,4 +32,33 @@ export function useTasks() {
     staleTime: 30_000,
     retry: 1,
   });
+}
+
+export function useDeleteTasks() {
+  const queryClient = useQueryClient();
+
+  const deleteTasks = async (ids: string[]): Promise<{ deleted: string[]; failed: string[] }> => {
+    const results = await Promise.allSettled(
+      ids.map(id => apiFetch(`/api/tasks/${id}`, { method: "DELETE" }))
+    );
+
+    const deleted: string[] = [];
+    const failed: string[] = [];
+
+    results.forEach((result, i) => {
+      if (result.status === "fulfilled" && (result.value.ok || result.value.status === 204)) {
+        deleted.push(ids[i]);
+      } else {
+        failed.push(ids[i]);
+      }
+    });
+
+    if (deleted.length > 0) {
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    }
+
+    return { deleted, failed };
+  };
+
+  return { deleteTasks };
 }

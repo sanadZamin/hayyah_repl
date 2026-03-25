@@ -1,8 +1,8 @@
 import { useState, useMemo } from "react";
 import { AppLayout } from "@/components/app-layout";
-import { useTasks } from "@/hooks/use-tasks";
+import { useTasks, useDeleteTasks } from "@/hooks/use-tasks";
 import { useDashboardMetrics } from "@/hooks/use-dashboard";
-import { Search, Eye, Edit2, Download, Calendar, X, Wrench, MapPin, User, Clock, CheckCircle2, Loader2, AlertCircle, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
+import { Search, Eye, Edit2, Download, Calendar, X, Wrench, MapPin, User, Clock, CheckCircle2, Loader2, AlertCircle, ChevronUp, ChevronDown, ChevronsUpDown, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -66,12 +66,26 @@ function SortIcon({ col, sortCol, sortDir }: { col: SortCol; sortCol: SortCol | 
 export default function Orders() {
   const { data: tasks, isLoading, isError, error, refetch } = useTasks();
   const { data: metrics } = useDashboardMetrics();
+  const { deleteTasks } = useDeleteTasks();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [sortCol, setSortCol] = useState<SortCol | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  async function handleDeleteSelected() {
+    setIsDeleting(true);
+    setDeleteError(null);
+    const { deleted, failed } = await deleteTasks(selectedRows);
+    setIsDeleting(false);
+    setShowDeleteConfirm(false);
+    if (deleted.length > 0) setSelectedRows(prev => prev.filter(id => !deleted.includes(id)));
+    if (failed.length > 0) setDeleteError(`${failed.length} task(s) could not be deleted.`);
+  }
 
   function handleSort(col: SortCol) {
     if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc");
@@ -155,13 +169,54 @@ export default function Orders() {
             {/* Bulk bar */}
             {selectedRows.length > 0 && (
               <div className="absolute top-0 left-0 right-0 z-20 text-white p-3 flex items-center justify-between px-6" style={{ background: "var(--hayyah-navy)" }}>
-                <span className="text-sm font-medium">{selectedRows.length} orders selected</span>
-                <div className="flex gap-2">
-                  <button className="px-3 py-1 rounded-lg text-sm" style={{ background: "rgba(255,255,255,0.1)" }}>Assign Provider</button>
-                  <button className="px-3 py-1 rounded-lg text-sm flex items-center gap-1" style={{ background: "rgba(255,255,255,0.1)" }}>
-                    <Download className="w-3.5 h-3.5" /> Export
+                <span className="text-sm font-medium">{selectedRows.length} task{selectedRows.length !== 1 ? "s" : ""} selected</span>
+                <div className="flex gap-2 items-center">
+                  <button
+                    onClick={() => { setShowDeleteConfirm(true); setDeleteError(null); }}
+                    className="px-3 py-1 rounded-lg text-sm flex items-center gap-1.5 font-medium transition-colors hover:opacity-90"
+                    style={{ background: "rgba(239,68,68,0.25)", color: "#fca5a5" }}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> Delete Selected
                   </button>
-                  <button className="px-3 py-1 rounded-lg text-sm" style={{ background: "rgba(239,68,68,0.2)", color: "#fca5a5" }}>Cancel Selected</button>
+                  <button onClick={() => setSelectedRows([])} className="p-1 rounded text-white/60 hover:text-white">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Delete confirm dialog */}
+            {showDeleteConfirm && (
+              <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/30 rounded-2xl">
+                <div className="bg-white rounded-2xl shadow-xl p-6 w-80 mx-4">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "#fef2f2" }}>
+                      <Trash2 className="w-5 h-5 text-red-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-gray-900">Delete {selectedRows.length} task{selectedRows.length !== 1 ? "s" : ""}?</h3>
+                      <p className="text-xs text-gray-500 mt-0.5">This action cannot be undone.</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-3 mt-5">
+                    <button
+                      onClick={() => setShowDeleteConfirm(false)}
+                      disabled={isDeleting}
+                      className="flex-1 py-2 rounded-xl border text-sm font-medium text-gray-700 bg-white disabled:opacity-50"
+                      style={{ borderColor: "#e2e8f0" }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleDeleteSelected}
+                      disabled={isDeleting}
+                      className="flex-1 py-2 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2 disabled:opacity-70"
+                      style={{ background: "#dc2626" }}
+                    >
+                      {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                      {isDeleting ? "Deleting…" : "Delete"}
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -201,6 +256,15 @@ export default function Orders() {
                   <p className="text-xs text-amber-600 mt-0.5">{error?.message}</p>
                 </div>
                 <button onClick={() => refetch()} className="text-xs font-medium text-amber-700 hover:underline">Retry</button>
+              </div>
+            )}
+
+            {/* Delete error */}
+            {deleteError && (
+              <div className="p-4 flex items-center gap-3 bg-red-50 border-b border-red-100">
+                <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+                <p className="text-sm text-red-700 flex-1">{deleteError}</p>
+                <button onClick={() => setDeleteError(null)} className="text-red-400 hover:text-red-600"><X className="w-4 h-4" /></button>
               </div>
             )}
 
