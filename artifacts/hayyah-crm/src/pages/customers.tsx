@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { AppLayout } from "@/components/app-layout";
-import { useUsers, type HayyahUser } from "@/hooks/use-users";
+import { useUsers, getPhone, type HayyahUser } from "@/hooks/use-users";
 import { Search, Plus, MoreVertical, Filter, ChevronLeft, ChevronRight, Phone, Mail, MapPin, Star, Clock, CheckCircle2, X, Loader2, AlertCircle, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 
 function getFullName(u: HayyahUser): string {
@@ -51,7 +51,7 @@ export default function Customers() {
     const rows = users.filter((u) => {
       const name = getFullName(u).toLowerCase();
       const email = (u.email ?? "").toLowerCase();
-      const phone = (u.phone ?? u.phoneNumber ?? "").toLowerCase();
+      const phone = getPhone(u).toLowerCase();
       const matchSearch = !q || name.includes(q) || email.includes(q) || phone.includes(q);
       const matchStatus = statusFilter === "all" || getStatus(u).toLowerCase() === statusFilter;
       return matchSearch && matchStatus;
@@ -162,7 +162,7 @@ export default function Customers() {
                     {filtered.map((user) => {
                       const name = getFullName(user);
                       const initials = getInitials(name);
-                      const phone = user.phone ?? user.phoneNumber ?? null;
+                      const phone = getPhone(user) || null;
                       const status = getStatus(user);
                       const isSelected = user.id === selectedId;
                       return (
@@ -266,14 +266,14 @@ export default function Customers() {
                       </div>
                     </div>
                   )}
-                  {(selectedUser.phone ?? selectedUser.phoneNumber) && (
+                  {getPhone(selectedUser) && (
                     <div className="flex items-center gap-3 text-sm">
                       <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-500">
                         <Phone className="w-4 h-4" />
                       </div>
                       <div>
                         <p className="text-gray-500 text-xs">Phone</p>
-                        <p className="font-medium text-gray-900">{selectedUser.phone ?? selectedUser.phoneNumber}</p>
+                        <p className="font-medium text-gray-900">{getPhone(selectedUser)}</p>
                       </div>
                     </div>
                   )}

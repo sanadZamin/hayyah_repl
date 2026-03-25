@@ -1,36 +1,12 @@
 import { useState, useRef, useEffect } from "react";
 import { X, ChevronDown, Calendar, MapPin, Wrench, FileText, CheckCircle2, Loader2, AlertCircle, Home, BedDouble, Timer, Search, User } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
-import { useUsers, type HayyahUser } from "@/hooks/use-users";
+import { useUsers, getPhone, type HayyahUser } from "@/hooks/use-users";
 import { apiFetch } from "@/lib/api-fetch";
 
 function getDisplayName(u: HayyahUser): string {
   const full = `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim();
   return full || u.username || u.email || u.id?.slice(0, 8) || "Unknown";
-}
-
-function getPhone(u: HayyahUser): string {
-  const raw = u as Record<string, unknown>;
-
-  // Check all common top-level field name variants
-  for (const key of ["phone","phoneNumber","mobile","mobileNumber","tel","contactNumber","cellPhone","mobilePhone"]) {
-    const val = raw[key];
-    if (val && typeof val === "string") return val;
-  }
-
-  // Keycloak stores custom user attributes as { fieldName: string | string[] }
-  const attrs = raw.attributes;
-  if (attrs && typeof attrs === "object" && !Array.isArray(attrs)) {
-    const attrMap = attrs as Record<string, unknown>;
-    for (const key of ["phoneNumber","phone","mobile","mobileNumber","tel","contactNumber","cellPhone","mobilePhone"]) {
-      const val = attrMap[key];
-      if (!val) continue;
-      if (Array.isArray(val) && typeof val[0] === "string") return val[0];
-      if (typeof val === "string") return val;
-    }
-  }
-
-  return "";
 }
 
 // Map UI service names → API serviceType values
