@@ -2,7 +2,8 @@ import { useState, useMemo } from "react";
 import { AppLayout } from "@/components/app-layout";
 import { useTasks, useDeleteTasks } from "@/hooks/use-tasks";
 import { useDashboardMetrics } from "@/hooks/use-dashboard";
-import { Search, Eye, Edit2, Download, Calendar, X, Wrench, MapPin, User, Clock, CheckCircle2, Loader2, AlertCircle, ChevronUp, ChevronDown, ChevronsUpDown, Trash2 } from "lucide-react";
+import { Search, Eye, Edit2, Download, Calendar, X, Wrench, MapPin, User, Clock, CheckCircle2, Loader2, AlertCircle, ChevronUp, ChevronDown, ChevronsUpDown, Trash2, Plus } from "lucide-react";
+import { apiFetch } from "@/lib/api-fetch";
 import { format } from "date-fns";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -66,6 +67,40 @@ export default function Orders() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const [showNewTask, setShowNewTask] = useState(false);
+  const [newTaskForm, setNewTaskForm] = useState({ title: "", description: "", customerName: "", taskDateTime: "" });
+  const [isCreating, setIsCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  async function handleCreateTask(e: React.FormEvent) {
+    e.preventDefault();
+    setIsCreating(true);
+    setCreateError(null);
+    try {
+      const res = await apiFetch("/api/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: newTaskForm.title,
+          description: newTaskForm.description,
+          customerName: newTaskForm.customerName,
+          taskDateTime: newTaskForm.taskDateTime || undefined,
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error((body as any).error_description || `Error ${res.status}`);
+      }
+      setShowNewTask(false);
+      setNewTaskForm({ title: "", description: "", customerName: "", taskDateTime: "" });
+      refetch();
+    } catch (err: any) {
+      setCreateError(err.message ?? "Could not create task.");
+    } finally {
+      setIsCreating(false);
+    }
+  }
 
   async function handleDeleteSelected() {
     setIsDeleting(true);
@@ -134,7 +169,16 @@ export default function Orders() {
       <div className="flex h-full gap-6 relative" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
         <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${selectedId ? "lg:pr-[420px]" : ""}`}>
           <div className="mb-6">
-            <h1 className="text-2xl font-bold" style={{ color: "var(--hayyah-navy)" }}>Tasks</h1>
+            <div className="flex items-center justify-between mb-1">
+              <h1 className="text-2xl font-bold" style={{ color: "var(--hayyah-navy)" }}>Tasks</h1>
+              <button
+                onClick={() => { setShowNewTask(true); setCreateError(null); }}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90"
+                style={{ background: "var(--hayyah-blue)" }}
+              >
+                <Plus className="w-4 h-4" /> New Task
+              </button>
+            </div>
             <p className="text-gray-500 text-sm mt-1 mb-4">Manage and track all service tasks</p>
             <div className="flex flex-wrap gap-3">
               {statTabs.map((s) => (
@@ -420,6 +464,104 @@ export default function Orders() {
           </div>
         )}
       </div>
+
+      {/* New Task slide-over */}
+      {showNewTask && (
+        <div className="fixed inset-0 z-50 flex">
+          {/* Backdrop */}
+          <div className="flex-1 bg-black/30" onClick={() => setShowNewTask(false)} />
+          {/* Panel */}
+          <div className="w-full max-w-md bg-white shadow-2xl flex flex-col" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+            <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-gray-50/60">
+              <div>
+                <h2 className="text-lg font-bold" style={{ color: "var(--hayyah-navy)" }}>New Task</h2>
+                <p className="text-xs text-gray-400 mt-0.5">Fill in the details below to create a new task</p>
+              </div>
+              <button onClick={() => setShowNewTask(false)} className="p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateTask} className="flex-1 flex flex-col overflow-y-auto">
+              <div className="p-6 space-y-5">
+                {/* Title */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Title <span className="text-red-400">*</span></label>
+                  <input
+                    required
+                    type="text"
+                    placeholder="e.g. AC Maintenance"
+                    value={newTaskForm.title}
+                    onChange={e => setNewTaskForm(f => ({ ...f, title: e.target.value }))}
+                    className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2"
+                    style={{ focusRingColor: "var(--hayyah-blue)" } as React.CSSProperties}
+                  />
+                </div>
+
+                {/* Customer Name */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Customer Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Ahmed Al-Rashid"
+                    value={newTaskForm.customerName}
+                    onChange={e => setNewTaskForm(f => ({ ...f, customerName: e.target.value }))}
+                    className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2"
+                  />
+                </div>
+
+                {/* Schedule */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Schedule</label>
+                  <input
+                    type="datetime-local"
+                    value={newTaskForm.taskDateTime}
+                    onChange={e => setNewTaskForm(f => ({ ...f, taskDateTime: e.target.value }))}
+                    className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2"
+                  />
+                </div>
+
+                {/* Description */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Description</label>
+                  <textarea
+                    rows={4}
+                    placeholder="Describe the task…"
+                    value={newTaskForm.description}
+                    onChange={e => setNewTaskForm(f => ({ ...f, description: e.target.value }))}
+                    className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 resize-none"
+                  />
+                </div>
+
+                {createError && (
+                  <div className="flex items-start gap-2 p-3 rounded-xl bg-red-50 border border-red-100">
+                    <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+                    <p className="text-sm text-red-700">{createError}</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="p-6 pt-0 mt-auto flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowNewTask(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isCreating}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2 transition-opacity hover:opacity-90 disabled:opacity-60"
+                  style={{ background: "var(--hayyah-blue)" }}
+                >
+                  {isCreating ? <><Loader2 className="w-4 h-4 animate-spin" /> Creating…</> : "Create Task"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </AppLayout>
   );
 }
