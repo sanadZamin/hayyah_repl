@@ -41,16 +41,6 @@ function formatDate(ms: number) {
   try { return format(new Date(ms), "MMM d, h:mm a"); } catch { return "—"; }
 }
 
-const MOCK_ORDERS = [
-  { id: "#HY-2024-081", customer: "Ahmed Al-Farsi",  taskType: "Cleaning",     service: "Deep Cleaning",  provider: "Omar K.",    date: "Today, 10:30 AM", status: "Completed",   amount: "JOD 450", payment: "Paid" },
-  { id: "#HY-2024-082", customer: "Sarah Rahman",     taskType: "Pest Control", service: "Pest Control",   provider: "Unassigned", date: "Today, 12:00 PM", status: "Pending",     amount: "JOD 250", payment: "Pending" },
-  { id: "#HY-2024-083", customer: "Mohammed N.",      taskType: "Maintenance",  service: "AC Maintenance", provider: "Ali M.",     date: "Today, 02:15 PM", status: "In Progress", amount: "JOD 300", payment: "Paid" },
-  { id: "#HY-2024-084", customer: "Fatima Saeed",     taskType: "Plumbing",     service: "Plumbing",       provider: "Hassan T.",  date: "Tomorrow, 09:00", status: "Pending",     amount: "JOD 150", payment: "Pending" },
-  { id: "#HY-2024-085", customer: "Khalid Basheer",   taskType: "Painting",     service: "Painting",       provider: "Ibrahim W.", date: "Oct 24, 10:00 AM",status: "Completed",   amount: "JOD 850", payment: "Paid" },
-  { id: "#HY-2024-086", customer: "Aisha Al-Dosari",  taskType: "Cleaning",     service: "Deep Cleaning",  provider: "Omar K.",    date: "Oct 24, 01:30 PM",status: "Cancelled",   amount: "JOD 450", payment: "Refunded" },
-  { id: "#HY-2024-087", customer: "Omar Tariq",       taskType: "Maintenance",  service: "AC Maintenance", provider: "Ali M.",     date: "Oct 23, 11:00 AM",status: "Completed",   amount: "JOD 300", payment: "Paid" },
-  { id: "#HY-2024-088", customer: "Leena Mansour",    taskType: "Pest Control", service: "Pest Control",   provider: "Khaled S.",  date: "Oct 23, 03:45 PM",status: "Completed",   amount: "JOD 250", payment: "Paid" },
-];
 
 
 type SortCol = "id" | "customer" | "tasktype" | "service" | "date" | "status";
@@ -102,24 +92,18 @@ export default function Orders() {
     { label: "Canceled",         value: tasksByState["CANCELED"],                        color: "#dc2626" },
   ];
 
-  const hasTasks = !isLoading && !isError && tasks && tasks.length > 0;
-
-  const apiOrders = useMemo(() => {
+  const orders = useMemo(() => {
     if (!tasks) return [];
     return tasks.map(t => ({
       id: t.id,
       customer: t.customerName ?? "—",
-      service: t.description ?? "Service",
+      service: t.description ?? "—",
       taskType: t.title ?? "—",
       provider: t.technicianName ?? "Unassigned",
       date: formatDate(t.taskDateTime),
       status: t.orderStatus ?? "NEW",
-      amount: "JOD —",
-      payment: "—",
     }));
   }, [tasks]);
-
-  const orders = hasTasks ? apiOrders : MOCK_ORDERS;
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -141,7 +125,6 @@ export default function Orders() {
     });
   }, [orders, search, statusFilter, sortCol, sortDir]);
 
-  const selectedOrder = MOCK_ORDERS.find(o => o.id === selectedId);
 
   const toggleRow = (id: string) => setSelectedRows(prev => prev.includes(id) ? prev.filter(r => r !== id) : [...prev, id]);
   const toggleAll = () => setSelectedRows(selectedRows.length === filtered.length ? [] : filtered.map(o => o.id));
@@ -252,7 +235,7 @@ export default function Orders() {
               <div className="p-6 flex items-center gap-3 bg-amber-50 border-b border-amber-100">
                 <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0" />
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-amber-800">Live order data unavailable — showing sample data</p>
+                  <p className="text-sm font-medium text-amber-800">Could not load task data</p>
                   <p className="text-xs text-amber-600 mt-0.5">{error?.message}</p>
                 </div>
                 <button onClick={() => refetch()} className="text-xs font-medium text-amber-700 hover:underline">Retry</button>
@@ -276,8 +259,8 @@ export default function Orders() {
                     <th className="w-12 px-4 py-3 text-left">
                       <input type="checkbox" checked={selectedRows.length === filtered.length && filtered.length > 0} onChange={toggleAll} className="rounded" />
                     </th>
-                    {(["id","customer","tasktype","service","date","amount","status","actions"] as const).map((col) => {
-                      const label: Record<string, string> = { id: "Order ID", customer: "Customer", tasktype: "Task Type", service: "Technician & Service", date: "Schedule", amount: "Amount", status: "Status", actions: "" };
+                    {(["id","customer","tasktype","service","date","status","actions"] as const).map((col) => {
+                      const label: Record<string, string> = { id: "Task ID", customer: "Customer", tasktype: "Task Type", service: "Technician & Service", date: "Schedule", status: "Status", actions: "" };
                       const sortable = (["id","customer","tasktype","service","date","status"] as const).includes(col as SortCol);
                       return (
                         <th key={col} className={`font-semibold text-gray-500 py-3 px-4 text-left select-none ${sortable ? "cursor-pointer hover:text-gray-800" : ""}`}
@@ -290,6 +273,13 @@ export default function Orders() {
                   </tr>
                 </thead>
                 <tbody>
+                  {!isLoading && filtered.length === 0 && (
+                    <tr>
+                      <td colSpan={8} className="py-16 text-center text-sm text-gray-400">
+                        {isError ? "Failed to load tasks." : tasks && tasks.length === 0 ? "No tasks found." : "No tasks match your filters."}
+                      </td>
+                    </tr>
+                  )}
                   {filtered.map((order) => (
                     <tr key={order.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors" style={{ background: selectedRows.includes(order.id) ? "rgba(0,136,251,0.04)" : undefined }}>
                       <td className="px-4 py-3">
@@ -299,18 +289,12 @@ export default function Orders() {
                         <span className="font-mono text-xs">{order.id}</span>
                       </td>
                       <td className="py-3 px-4 font-medium text-gray-900">{order.customer}</td>
-                      <td className="py-3 px-4 text-sm text-gray-600">{"taskType" in order ? (order as any).taskType || "—" : "—"}</td>
+                      <td className="py-3 px-4 text-sm text-gray-600">{order.taskType || "—"}</td>
                       <td className="py-3 px-4">
                         <div className={`font-medium text-sm ${order.provider === "Unassigned" ? "text-amber-600" : "text-gray-800"}`}>{order.provider}</div>
                         <div className="text-xs mt-0.5 text-gray-500">{order.service}</div>
                       </td>
                       <td className="py-3 px-4 text-gray-600">{order.date}</td>
-                      <td className="py-3 px-4">
-                        <div className="font-medium text-gray-900">{order.amount}</div>
-                        {"payment" in order && (
-                          <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 mt-0.5">{(order as any).payment}</div>
-                        )}
-                      </td>
                       <td className="py-3 px-4">
                         <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusBadge(order.status)}`}>{getStatusLabel(order.status)}</span>
                       </td>
@@ -336,13 +320,13 @@ export default function Orders() {
         {selectedId && (
           <div className="fixed inset-y-0 right-0 w-[400px] bg-white shadow-2xl border-l border-gray-100 z-50 flex flex-col lg:absolute lg:right-0 lg:top-0 lg:bottom-0 lg:rounded-2xl lg:border lg:shadow-md" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
             {(() => {
-              const order = selectedOrder ?? filtered.find(o => o.id === selectedId);
+              const order = filtered.find(o => o.id === selectedId);
               if (!order) return null;
               return (
                 <>
                   <div className="p-5 flex items-center justify-between border-b border-gray-100 bg-gray-50/50 rounded-t-2xl">
                     <div>
-                      <h2 className="text-lg font-bold" style={{ color: "var(--hayyah-navy)" }}>Order {order.id}</h2>
+                      <h2 className="text-lg font-bold" style={{ color: "var(--hayyah-navy)" }}>Task {order.id}</h2>
                       <div className="mt-2 flex items-center gap-2">
                         <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusBadge(order.status)}`}>{getStatusLabel(order.status)}</span>
                         <span className="text-sm text-gray-500">• {order.date}</span>
