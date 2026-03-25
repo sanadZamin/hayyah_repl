@@ -137,8 +137,8 @@ export default function Orders() {
       <div className="flex h-full gap-6 relative" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
         <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${selectedId ? "lg:pr-[420px]" : ""}`}>
           <div className="mb-6">
-            <h1 className="text-2xl font-bold" style={{ color: "var(--hayyah-navy)" }}>Orders</h1>
-            <p className="text-gray-500 text-sm mt-1 mb-4">Manage and track all service orders</p>
+            <h1 className="text-2xl font-bold" style={{ color: "var(--hayyah-navy)" }}>Tasks</h1>
+            <p className="text-gray-500 text-sm mt-1 mb-4">Manage and track all service tasks</p>
             <div className="flex flex-wrap gap-3">
               {statTabs.map((s) => (
                 <div key={s.label} className="rounded-xl bg-white shadow-sm flex-1 min-w-[110px] px-4 py-3">
@@ -213,7 +213,7 @@ export default function Orders() {
                       <input type="checkbox" checked={selectedRows.length === filtered.length && filtered.length > 0} onChange={toggleAll} className="rounded" />
                     </th>
                     {(["id","customer","tasktype","service","date","amount","status","actions"] as const).map((col) => {
-                      const label: Record<string, string> = { id: "Order ID", customer: "Customer", tasktype: "Task Type", service: "Service & Provider", date: "Schedule", amount: "Amount", status: "Status", actions: "" };
+                      const label: Record<string, string> = { id: "Order ID", customer: "Customer", tasktype: "Task Type", service: "Technician & Service", date: "Schedule", amount: "Amount", status: "Status", actions: "" };
                       const sortable = (["id","customer","tasktype","service","date","status"] as const).includes(col as SortCol);
                       return (
                         <th key={col} className={`font-semibold text-gray-500 py-3 px-4 text-left select-none ${sortable ? "cursor-pointer hover:text-gray-800" : ""}`}
@@ -237,8 +237,8 @@ export default function Orders() {
                       <td className="py-3 px-4 font-medium text-gray-900">{order.customer}</td>
                       <td className="py-3 px-4 text-sm text-gray-600">{"taskType" in order ? (order as any).taskType || "—" : "—"}</td>
                       <td className="py-3 px-4">
-                        <div className="font-medium text-sm text-gray-800">{order.service}</div>
-                        <div className={`text-xs mt-0.5 ${order.provider === "Unassigned" ? "text-amber-600 font-medium" : "text-gray-500"}`}>{order.provider}</div>
+                        <div className={`font-medium text-sm ${order.provider === "Unassigned" ? "text-amber-600" : "text-gray-800"}`}>{order.provider}</div>
+                        <div className="text-xs mt-0.5 text-gray-500">{order.service}</div>
                       </td>
                       <td className="py-3 px-4 text-gray-600">{order.date}</td>
                       <td className="py-3 px-4">
