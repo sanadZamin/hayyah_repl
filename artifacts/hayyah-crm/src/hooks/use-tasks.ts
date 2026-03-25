@@ -12,6 +12,7 @@ export interface Task {
   taskDateTime: number;
   customerName?: string;
   taskType?: string;
+  technicianName?: string;
 }
 
 async function fetchTasks(): Promise<Task[]> {

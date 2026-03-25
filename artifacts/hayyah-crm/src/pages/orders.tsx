@@ -97,7 +97,7 @@ export default function Orders() {
       customer: t.customerName ?? "—",
       service: t.description ?? "Service",
       taskType: t.title ?? "—",
-      provider: "Unassigned",
+      provider: t.technicianName ?? "Unassigned",
       date: formatDate(t.taskDateTime),
       status: t.orderStatus ?? "NEW",
       amount: "JOD —",
