@@ -54,7 +54,7 @@ const TIME_SLOTS = [
   "12:00 PM","01:00 PM","02:00 PM","03:00 PM","04:00 PM","05:00 PM",
 ];
 
-const CITIES = ["Riyadh","Jeddah","Dammam","Mecca","Medina","Khobar","Abha"];
+const CITIES = ["Amman","Zarqa","Irbid","Aqaba","Salt","Madaba","Jerash","Ajloun","Karak","Mafraq"];
 
 // Parse "08:00 AM" to hours/minutes offset
 function parseTime(slot: string): { h: number; m: number } {
