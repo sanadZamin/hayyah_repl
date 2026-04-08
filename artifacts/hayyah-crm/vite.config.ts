@@ -6,6 +6,7 @@ import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
 const rawPort = process.env.PORT ?? "3000";
 const port = Number(rawPort);
+const apiProxyTarget = process.env.VITE_API_PROXY_TARGET ?? "http://localhost:8080";
 
 if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
@@ -58,13 +59,13 @@ export default defineConfig({
     },
     proxy: {
       "/api": {
-        target: "http://localhost:8080",
-        changeOrigin: false,
+        target: apiProxyTarget,
+        changeOrigin: true,
       },
       "/frontend/api": {
-        target: "http://localhost:8080",
+        target: apiProxyTarget,
         rewrite: (path) => path.replace(/^\/frontend\/api/, "/api"),
-        changeOrigin: false,
+        changeOrigin: true,
       },
     },
   },

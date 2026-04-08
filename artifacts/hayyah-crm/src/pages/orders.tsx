@@ -140,7 +140,7 @@ export default function Orders() {
             <div className="flex items-center justify-between mb-1">
               <h1 className="text-2xl font-bold" style={{ color: "var(--hayyah-navy)" }}>Tasks</h1>
               <button
-                onClick={() => { setShowNewTask(true); setCreateError(null); }}
+                onClick={() => { setShowNewTask(true); }}
                 className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90"
                 style={{ background: "var(--hayyah-blue)" }}
               >
