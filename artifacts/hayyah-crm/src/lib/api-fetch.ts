@@ -81,8 +81,7 @@ export async function apiFetch(input: RequestInfo, init: RequestInit = {}): Prom
   const tokenData = getTokenData();
   const token = tokenData?.access_token ?? "";
 
-  // Rewrite root-relative /api/* paths to go through the app's base URL
-  // e.g. /api/tasks → /frontend/api/tasks so the reverse proxy routes correctly
+  // Root-relative /api/* → same-origin /api/… (Vite proxies /api in dev; prod nginx routes /api)
   const url: RequestInfo =
     typeof input === "string" && input.startsWith("/api/")
       ? apiUrl(input.slice(4))
