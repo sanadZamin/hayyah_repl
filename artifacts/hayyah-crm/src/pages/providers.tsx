@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { AppLayout } from "@/components/app-layout";
+import type { Technician } from "@workspace/api-client-react";
 import { useTechnicians } from "@/hooks/use-technicians";
 import { Plus, MapPin, Star, Briefcase, CheckCircle2, LayoutGrid, List as ListIcon, Search, Filter, X, FileCheck, CalendarDays, ShieldCheck, ChevronRight } from "lucide-react";
 
@@ -39,25 +40,30 @@ export default function Providers() {
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  const providers: Provider[] = (techData && (techData as Provider[]).length > 0)
-    ? (techData as Record<string, unknown>[]).map(t => {
-        const name = String(t.name ?? "");
-        const specialty = String(t.specialty ?? "");
-        const status = String(t.status ?? "");
-        return {
-          id: String(t.id),
-          name,
-          initials: name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase(),
-          specialty,
-          rating: Number(t.rating ?? 0),
-          jobs: Number(t.completedJobs ?? 0),
-          activeJobs: 0,
-          city: "—",
-          status: status === "available" ? "Available" : status === "busy" ? "Busy" : "Off",
-          skills: [specialty],
-        };
-      })
-    : MOCK_PROVIDERS;
+  const providers: Provider[] =
+    techData && techData.length > 0
+      ? techData.map((t: Technician) => {
+          const name = `${t.firstName} ${t.lastName}`.trim() || t.email;
+          const specialty = t.specialization;
+          return {
+            id: String(t.id),
+            name,
+            initials: name
+              .split(" ")
+              .map((n) => n[0])
+              .join("")
+              .slice(0, 2)
+              .toUpperCase(),
+            specialty,
+            rating: t.rating != null && Number.isFinite(t.rating) ? t.rating : 0,
+            jobs: 0,
+            activeJobs: 0,
+            city: "—",
+            status: t.verified ? "Available" : "Off",
+            skills: [specialty],
+          };
+        })
+      : MOCK_PROVIDERS;
 
   const filtered = providers.filter(p => {
     const q = search.toLowerCase();

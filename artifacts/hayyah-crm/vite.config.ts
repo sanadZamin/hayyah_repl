@@ -1,4 +1,4 @@
-import { defineConfig, loadEnv } from "vite";
+import { defineConfig, loadEnv, type ProxyOptions } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
@@ -11,17 +11,31 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-const apiProxy = (target: string) => ({
-  "/api": {
-    target,
-    changeOrigin: true,
-  },
-  "/frontend/api": {
-    target,
-    rewrite: (p: string) => p.replace(/^\/frontend\/api/, "/api"),
-    changeOrigin: true,
-  },
-});
+const apiProxy = (target: string): Record<string, ProxyOptions> => {
+  const configure: ProxyOptions["configure"] = (proxy) => {
+    proxy.on("proxyRes", (proxyRes, req) => {
+      const code = proxyRes.statusCode ?? 0;
+      if (code >= 400) {
+        console.warn(
+          `[vite proxy] ${req.method} ${req.url} → HTTP ${code} (target: ${target})`,
+        );
+      }
+    });
+    proxy.on("error", (err) => {
+      console.error("[vite proxy]", err.message);
+    });
+  };
+
+  return {
+    "/api": { target, changeOrigin: true, configure },
+    "/frontend/api": {
+      target,
+      rewrite: (p: string) => p.replace(/^\/frontend\/api/, "/api"),
+      changeOrigin: true,
+      configure,
+    },
+  };
+};
 
 export default defineConfig(async ({ mode }) => {
   const env = loadEnv(mode, import.meta.dirname);
