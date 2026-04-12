@@ -1,8 +1,9 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { AppLayout } from "@/components/app-layout";
-import { useTasks, useDeleteTasks } from "@/hooks/use-tasks";
+import { useTasks, useDeleteTasks, useTaskEvents } from "@/hooks/use-tasks";
 import { useDashboardMetrics } from "@/hooks/use-dashboard";
-import { Search, Eye, Edit2, Download, Calendar, X, Wrench, MapPin, User, Clock, CheckCircle2, Loader2, AlertCircle, ChevronUp, ChevronDown, ChevronsUpDown, Trash2, Plus } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Search, Eye, Edit2, Download, Calendar, X, Wrench, MapPin, User, Clock, CheckCircle2, Loader2, AlertCircle, ChevronUp, ChevronDown, ChevronsUpDown, Trash2, Plus, RefreshCcw } from "lucide-react";
 import { NewOrderDialog } from "@/components/new-order-dialog";
 import { format } from "date-fns";
 
@@ -55,7 +56,10 @@ function SortIcon({ col, sortCol, sortDir }: { col: SortCol; sortCol: SortCol | 
 }
 
 export default function Orders() {
-  const { data: tasks, isLoading, isError, error, refetch } = useTasks();
+  const queryClient = useQueryClient();
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const { data: tasksPage, isLoading, isError, error } = useTasks(page - 1, pageSize);
   const { data: metrics } = useDashboardMetrics();
   const { deleteTasks } = useDeleteTasks();
   const [search, setSearch] = useState("");
@@ -69,6 +73,30 @@ export default function Orders() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const [showNewTask, setShowNewTask] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const { data: taskEvents, isLoading: isEventsLoading, isError: isEventsError, error: eventsError } = useTaskEvents(selectedId);
+  const tasks = tasksPage?.content ?? [];
+
+  const refreshOrdersData = useCallback(async () => {
+    const jobs = [
+      queryClient.refetchQueries({ queryKey: ["tasks"] }),
+      queryClient.refetchQueries({ queryKey: ["/api/dashboard/metrics"] }),
+    ];
+    if (selectedId) {
+      jobs.push(queryClient.refetchQueries({ queryKey: ["task-events", selectedId] }));
+    }
+    await Promise.all(jobs);
+  }, [queryClient, selectedId]);
+
+  async function handleRefresh() {
+    setSelectedRows([]);
+    setIsRefreshing(true);
+    try {
+      await refreshOrdersData();
+    } finally {
+      setIsRefreshing(false);
+    }
+  }
 
   async function handleDeleteSelected() {
     setIsDeleting(true);
@@ -128,9 +156,25 @@ export default function Orders() {
     });
   }, [orders, search, statusFilter, sortCol, sortDir]);
 
+  const totalPages = Math.max(1, tasksPage?.totalPages ?? 1);
+  const currentPage = Math.min(page, totalPages);
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+  const totalElements = tasksPage?.totalElements ?? filtered.length;
+  const pagedRows = useMemo(() => filtered.slice(0, pageSize), [filtered, pageSize]);
+
 
   const toggleRow = (id: string) => setSelectedRows(prev => prev.includes(id) ? prev.filter(r => r !== id) : [...prev, id]);
-  const toggleAll = () => setSelectedRows(selectedRows.length === filtered.length ? [] : filtered.map(o => o.id));
+  const toggleAll = () => {
+    const pageIds = pagedRows.map(o => o.id);
+    const allOnPageSelected = pageIds.every(id => selectedRows.includes(id));
+    setSelectedRows(prev =>
+      allOnPageSelected
+        ? prev.filter(id => !pageIds.includes(id))
+        : [...new Set([...prev, ...pageIds])]
+    );
+  };
 
   return (
     <AppLayout activeNav="orders">
@@ -225,6 +269,16 @@ export default function Orders() {
               <button className="flex items-center gap-2 px-3 py-2 rounded-xl border text-sm text-gray-600 bg-white" style={{ borderColor: "#e2e8f0" }}>
                 <Calendar className="w-4 h-4" /> Date Range
               </button>
+              <button
+                type="button"
+                onClick={() => void handleRefresh()}
+                disabled={isRefreshing}
+                className="flex items-center gap-2 px-3 py-2 rounded-xl border text-sm text-gray-600 bg-white hover:bg-gray-50 disabled:opacity-60"
+                style={{ borderColor: "#e2e8f0" }}
+              >
+                <RefreshCcw className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`} aria-hidden />
+                {isRefreshing ? "Refreshing…" : "Refresh"}
+              </button>
               <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-3 py-2 rounded-xl border text-sm text-gray-600 outline-none bg-white" style={{ borderColor: "#e2e8f0" }}>
                 <option value="all">All Status</option>
                 <option value="NEW">New</option>
@@ -250,7 +304,7 @@ export default function Orders() {
                   <p className="text-sm font-medium text-amber-800">Could not load task data</p>
                   <p className="text-xs text-amber-600 mt-0.5">{error?.message}</p>
                 </div>
-                <button onClick={() => refetch()} className="text-xs font-medium text-amber-700 hover:underline">Retry</button>
+                <button onClick={handleRefresh} className="text-xs font-medium text-amber-700 hover:underline">Retry</button>
               </div>
             )}
 
@@ -269,7 +323,12 @@ export default function Orders() {
                 <thead className="sticky top-0 bg-white z-10" style={{ boxShadow: "0 1px 0 #f3f4f6" }}>
                   <tr>
                     <th className="w-12 px-4 py-3 text-left">
-                      <input type="checkbox" checked={selectedRows.length === filtered.length && filtered.length > 0} onChange={toggleAll} className="rounded" />
+                      <input
+                        type="checkbox"
+                        checked={pagedRows.length > 0 && pagedRows.every(row => selectedRows.includes(row.id))}
+                        onChange={toggleAll}
+                        className="rounded"
+                      />
                     </th>
                     {(["id","customer","tasktype","service","date","status","actions"] as const).map((col) => {
                       const label: Record<string, string> = { id: "Task ID", customer: "Customer", tasktype: "Task Type", service: "Technician & Service", date: "Schedule", status: "Status", actions: "" };
@@ -288,11 +347,11 @@ export default function Orders() {
                   {!isLoading && filtered.length === 0 && (
                     <tr>
                       <td colSpan={8} className="py-16 text-center text-sm text-gray-400">
-                        {isError ? "Failed to load tasks." : tasks && tasks.length === 0 ? "No tasks found." : "No tasks match your filters."}
+                        {isError ? "Failed to load tasks." : tasks.length === 0 ? "No tasks found." : "No tasks match your filters on this page."}
                       </td>
                     </tr>
                   )}
-                  {filtered.map((order) => (
+                  {pagedRows.map((order) => (
                     <tr key={order.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors" style={{ background: selectedRows.includes(order.id) ? "rgba(0,136,251,0.04)" : undefined }}>
                       <td className="px-4 py-3">
                         <input type="checkbox" checked={selectedRows.includes(order.id)} onChange={() => toggleRow(order.id)} className="rounded" />
@@ -325,6 +384,46 @@ export default function Orders() {
                 </tbody>
               </table>
             </div>
+            {/* Pagination */}
+            {!isLoading && totalElements > 0 && (
+              <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between gap-3 flex-wrap">
+                <div className="text-xs text-gray-500">
+                  Showing {(currentPage - 1) * pageSize + 1} to {Math.min(currentPage * pageSize, totalElements)} of {totalElements} tasks
+                </div>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={String(pageSize)}
+                    onChange={(e) => {
+                      setPageSize(Number(e.target.value));
+                      setPage(1);
+                    }}
+                    className="px-2 py-1.5 rounded-lg border text-xs text-gray-600 bg-white outline-none"
+                    style={{ borderColor: "#e2e8f0" }}
+                  >
+                    <option value="10">10 / page</option>
+                    <option value="20">20 / page</option>
+                    <option value="50">50 / page</option>
+                  </select>
+                  <button
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage <= 1}
+                    className="px-3 py-1.5 rounded-lg border text-xs text-gray-600 disabled:opacity-40"
+                    style={{ borderColor: "#e2e8f0" }}
+                  >
+                    Prev
+                  </button>
+                  <span className="text-xs text-gray-500">Page {currentPage} / {totalPages}</span>
+                  <button
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={currentPage >= totalPages}
+                    className="px-3 py-1.5 rounded-lg border text-xs text-gray-600 disabled:opacity-40"
+                    style={{ borderColor: "#e2e8f0" }}
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -352,23 +451,41 @@ export default function Orders() {
                   <div className="flex-1 overflow-y-auto p-6 space-y-8">
                     {/* Timeline */}
                     <div>
-                      <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">Order Status</h3>
-                      <div className="relative pl-3 space-y-6" style={{ borderLeft: "2px solid #f3f4f6", marginLeft: 15 }}>
-                        {["Order Booked", "Provider Assigned", "In Progress", "Completed"].map((step, idx) => {
-                          const statuses = ["Pending", "In Progress", "Completed"];
-                          const stepOrder = idx;
-                          const currentStep = order.status === "Completed" ? 3 : order.status === "In Progress" ? 2 : order.status === "Cancelled" ? -1 : 1;
-                          const done = stepOrder < currentStep || (order.status === "Completed" && stepOrder === 3);
-                          return (
-                            <div key={step} className="relative flex gap-4" style={{ marginLeft: -22 }}>
-                              <div className="w-[10px] h-[10px] rounded-full ring-4 ring-white z-10 flex-shrink-0 mt-1" style={{ background: done ? "#10b981" : order.status === "Cancelled" ? "#d1d5db" : "#d1d5db" }} />
-                              <div>
-                                <p className={`text-sm font-bold ${done ? "text-gray-900" : "text-gray-400"}`}>{step}</p>
+                      <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">Task History</h3>
+                      {isEventsLoading ? (
+                        <div className="flex items-center gap-2 text-sm text-gray-500">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Loading task events...
+                        </div>
+                      ) : isEventsError ? (
+                        <div className="flex items-start gap-2 text-sm text-red-600 bg-red-50 rounded-lg p-3">
+                          <AlertCircle className="w-4 h-4 mt-0.5" />
+                          <span>{eventsError?.message || "Failed to load task history."}</span>
+                        </div>
+                      ) : !taskEvents || taskEvents.length === 0 ? (
+                        <div className="text-sm text-gray-500 bg-gray-50 rounded-lg p-3">
+                          No task history events found.
+                        </div>
+                      ) : (
+                        <div className="relative pl-3 space-y-4" style={{ borderLeft: "2px solid #f3f4f6", marginLeft: 15 }}>
+                          {[...taskEvents]
+                            .sort((a, b) => a.createdAt - b.createdAt)
+                            .map((evt) => (
+                              <div key={evt.id} className="relative flex gap-4" style={{ marginLeft: -22 }}>
+                                <div className="w-[10px] h-[10px] rounded-full ring-4 ring-white z-10 flex-shrink-0 mt-1" style={{ background: "#0088fb" }} />
+                                <div className="min-w-0">
+                                  <p className="text-sm font-semibold text-gray-900">
+                                    {evt.fromState} to {evt.toState}
+                                  </p>
+                                  <p className="text-xs text-gray-500 mt-0.5">{evt.reasonCode || "No reason provided"}</p>
+                                  <p className="text-[11px] text-gray-400 mt-1">
+                                    {formatDate(evt.createdAt)} - {evt.actorType || "Unknown actor"}
+                                  </p>
+                                </div>
                               </div>
-                            </div>
-                          );
-                        })}
-                      </div>
+                            ))}
+                        </div>
+                      )}
                     </div>
 
                     <div className="border-t border-gray-100 pt-6">
@@ -435,7 +552,10 @@ export default function Orders() {
 
       <NewOrderDialog
         open={showNewTask}
-        onClose={() => { setShowNewTask(false); refetch(); }}
+        onClose={() => {
+          setShowNewTask(false);
+          void refreshOrdersData();
+        }}
       />
     </AppLayout>
   );

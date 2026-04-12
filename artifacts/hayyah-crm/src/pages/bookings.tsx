@@ -38,12 +38,12 @@ function formatTaskDate(ms: number) {
 }
 
 export default function Bookings() {
-  const { data: tasks, isLoading, isError, error, refetch } = useTasks();
+  const { data: tasksPage, isLoading, isError, error, refetch } = useTasks(0, 200);
+  const tasks = tasksPage?.content ?? [];
   const [statusFilter, setStatusFilter] = useState("all");
   const [search, setSearch]             = useState("");
 
   const filtered = useMemo(() => {
-    if (!tasks) return [];
     return tasks.filter((t) => {
       const matchStatus = statusFilter === "all" || t.orderStatus === statusFilter;
       const q = search.toLowerCase();
@@ -62,7 +62,7 @@ export default function Bookings() {
           <h1 className="text-3xl font-display font-bold text-foreground">Bookings</h1>
           <p className="text-muted-foreground mt-1">Manage scheduled jobs and appointments.</p>
         </div>
-        {tasks && (
+        {tasksPage && (
           <div className="text-sm text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-lg">
             {tasks.length} total task{tasks.length !== 1 ? "s" : ""}
           </div>

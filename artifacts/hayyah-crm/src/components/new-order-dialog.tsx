@@ -11,19 +11,72 @@ function getDisplayName(u: HayyahUser): string {
 
 // Map UI service names → API serviceType values
 const SERVICE_TYPE_MAP: Record<string, string> = {
-  "Deep Cleaning":       "cleaning",
-  "Regular Cleaning":    "cleaning",
-  "AC Maintenance":      "ac_maintenance",
-  "Pest Control":        "pest_control",
-  "Plumbing":            "plumbing",
-  "Electrical Work":     "electrical",
+  "Cleaning":            "cleaning",
+  "Repairing":           "repairing",
+  "Laundry":             "laundry",
   "Painting":            "painting",
-  "Carpentry":           "carpentry",
-  "Appliance Repair":    "appliance_repair",
-  "Garden & Landscaping":"gardening",
+  "Moving":              "moving",
+  "Chef":                "chef",
+  "Spa":                 "spa",
+  "Pest Control":        "pest_control",
 };
 
 const SERVICES = Object.keys(SERVICE_TYPE_MAP);
+const CLEANING_SUBCATEGORIES = [
+  "Standard Home Cleaning",
+  "Deep Cleaning",
+  "Office Cleaning",
+  "Window Cleaning",
+  "Sofa Cleaning",
+] as const;
+const CLEANING_FREQUENCIES = [
+  { value: "once", label: "Once" },
+  { value: "weekly", label: "Weekly" },
+  { value: "bi-weekly", label: "Bi-weekly" },
+] as const;
+const REPAIRING_SUBCATEGORIES = [
+  "Handyman",
+  "Electrician",
+  "Plumber",
+  "HVAC",
+  "Carpenter",
+  "Locksmith",
+] as const;
+const LAUNDRY_SUBCATEGORIES = [
+  "Bag - Wash & Iron",
+  "Bag - Iron Only",
+  "Bag - Wash & Fold",
+  "Home Linen",
+  "Dry Cleaning",
+] as const;
+const PAINTING_SUBCATEGORIES = [
+  "Interior Painting",
+  "Exterior Painting",
+  "Wall Prep",
+  "Ceiling Painting",
+  "Door & Window",
+] as const;
+const MOVING_SUBCATEGORIES = [
+  "Home Relocation",
+  "Furniture Disassembly",
+  "Packing & Unpacking",
+] as const;
+const CHEF_SUBCATEGORIES = [
+  "Arabic Cuisine",
+  "Italian",
+  "Continental",
+  "Asian",
+  "Healthy / Diet",
+] as const;
+const SPA_SUBCATEGORIES = [
+  "Full Body Massage",
+  "Hair Cut & Styling",
+  "Premium Blowdry",
+  "Hair Coloring",
+  "Deep Cleansing Facial",
+  "Foot Reflexology",
+  "Manicure & Pedicure",
+] as const;
 
 const TIME_SLOTS = [
   "08:00 AM","09:00 AM","10:00 AM","11:00 AM",
@@ -51,6 +104,30 @@ function isCleaningService(service: string): boolean {
   return SERVICE_TYPE_MAP[service] === "cleaning";
 }
 
+function isRepairingService(service: string): boolean {
+  return SERVICE_TYPE_MAP[service] === "repairing";
+}
+
+function isLaundryService(service: string): boolean {
+  return SERVICE_TYPE_MAP[service] === "laundry";
+}
+
+function isPaintingService(service: string): boolean {
+  return SERVICE_TYPE_MAP[service] === "painting";
+}
+
+function isMovingService(service: string): boolean {
+  return SERVICE_TYPE_MAP[service] === "moving";
+}
+
+function isChefService(service: string): boolean {
+  return SERVICE_TYPE_MAP[service] === "chef";
+}
+
+function isSpaService(service: string): boolean {
+  return SERVICE_TYPE_MAP[service] === "spa";
+}
+
 interface NewOrderDialogProps {
   open: boolean;
   onClose: () => void;
@@ -68,6 +145,11 @@ export function NewOrderDialog({ open, onClose }: NewOrderDialogProps) {
   const [customerSearch, setCustomerSearch] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState<HayyahUser | null>(null);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [repairPhotoName, setRepairPhotoName] = useState("");
+  const [laundryPhotoName, setLaundryPhotoName] = useState("");
+  const [paintingPhotoName, setPaintingPhotoName] = useState("");
+  const [movingPhotoName, setMovingPhotoName] = useState("");
+  const [spaPhotoName, setSpaPhotoName] = useState("");
   const searchRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown on outside click
@@ -114,8 +196,25 @@ export function NewOrderDialog({ open, onClose }: NewOrderDialogProps) {
     time: "",
     address: "",
     city: "",
+    cleaningSubcategory: "",
+    repairingSubcategory: "",
+    laundrySubcategories: [] as string[],
+    paintingSubcategory: "",
+    paintingRooms: "1",
+    paintingAreaSize: "",
+    movingSubcategory: "",
+    movingRooms: "1",
+    pickupAddress: "",
+    pickupCity: "",
+    dropoffAddress: "",
+    dropoffCity: "",
+    chefCuisine: "",
+    guestCount: "2",
+    chefSuppliesIngredients: "yes",
+    spaSubcategory: "",
     rooms: "2",
     duration: "3",
+    frequency: "once",
     specialRequest: "",
     neededMaterial: "no",
     description: "",
@@ -130,7 +229,21 @@ export function NewOrderDialog({ open, onClose }: NewOrderDialogProps) {
     setForm(prev => ({ ...prev, [field]: value }));
 
   const step1Valid = form.title.trim().length > 0 && form.service !== "";
-  const step2Valid = form.date !== "" && form.time !== "" && form.address.trim().length > 0;
+  const cleaningStep2Valid = !isCleaningService(form.service)
+    || (form.cleaningSubcategory !== "" && form.frequency !== "" && form.rooms !== "" && form.duration !== "");
+  const repairingStep2Valid = !isRepairingService(form.service)
+    || form.repairingSubcategory !== "";
+  const laundryStep2Valid = !isLaundryService(form.service)
+    || form.laundrySubcategories.length > 0;
+  const paintingStep2Valid = !isPaintingService(form.service)
+    || (form.paintingSubcategory !== "" && form.paintingRooms !== "" && form.paintingAreaSize.trim() !== "");
+  const movingStep2Valid = !isMovingService(form.service)
+    || (form.movingSubcategory !== "" && form.movingRooms !== "" && form.pickupAddress.trim() !== "" && form.pickupCity !== "" && form.dropoffAddress.trim() !== "" && form.dropoffCity !== "");
+  const chefStep2Valid = !isChefService(form.service)
+    || (form.chefCuisine !== "" && form.guestCount !== "");
+  const spaStep2Valid = !isSpaService(form.service)
+    || form.spaSubcategory !== "";
+  const step2Valid = form.date !== "" && form.time !== "" && form.address.trim().length > 0 && cleaningStep2Valid && repairingStep2Valid && laundryStep2Valid && paintingStep2Valid && movingStep2Valid && chefStep2Valid && spaStep2Valid;
 
   const buildPayload = () => ({
     title: form.title,
@@ -139,6 +252,28 @@ export function NewOrderDialog({ open, onClose }: NewOrderDialogProps) {
     description: form.description || form.specialRequest || "No description provided",
     taskDateTime: toTaskDateTime(form.date, form.time),
     details: {
+      cleaningSubcategory: form.cleaningSubcategory || undefined,
+      repairingSubcategory: form.repairingSubcategory || undefined,
+      attachmentName: repairPhotoName || undefined,
+      laundrySubcategories: form.laundrySubcategories.length > 0 ? form.laundrySubcategories : undefined,
+      laundryAttachmentName: laundryPhotoName || undefined,
+      paintingSubcategory: form.paintingSubcategory || undefined,
+      paintingRooms: form.paintingRooms || undefined,
+      paintingAreaSizeM2: form.paintingAreaSize || undefined,
+      paintingAttachmentName: paintingPhotoName || undefined,
+      movingSubcategory: form.movingSubcategory || undefined,
+      movingRooms: form.movingRooms || undefined,
+      pickupAddress: form.pickupAddress || undefined,
+      pickupCity: form.pickupCity || undefined,
+      dropoffAddress: form.dropoffAddress || undefined,
+      dropoffCity: form.dropoffCity || undefined,
+      movingAttachmentName: movingPhotoName || undefined,
+      chefCuisine: form.chefCuisine || undefined,
+      guestCount: form.guestCount || undefined,
+      chefSuppliesIngredients: form.chefSuppliesIngredients || undefined,
+      spaSubcategory: form.spaSubcategory || undefined,
+      spaAttachmentName: spaPhotoName || undefined,
+      frequency: form.frequency || undefined,
       cleaningServiceId: "b7ce6c4b-6c48-4f7c-8bd9-3f5e8e2cd2f4",
       rooms: form.rooms,
       duration: form.duration,
@@ -180,7 +315,12 @@ export function NewOrderDialog({ open, onClose }: NewOrderDialogProps) {
     setTimeout(() => {
       setStep(1); setSubmitted(false); setSubmitting(false); setSubmitError(null);
       setCustomerSearch(""); setSelectedCustomer(null); setShowDropdown(false);
-      setForm({ title: "", customerPhone: "", service: "", date: "", time: "", address: "", city: "", rooms: "2", duration: "3", specialRequest: "", neededMaterial: "no", description: "", paymentMethod: "cash" });
+      setRepairPhotoName("");
+      setLaundryPhotoName("");
+      setPaintingPhotoName("");
+      setMovingPhotoName("");
+      setSpaPhotoName("");
+      setForm({ title: "", customerPhone: "", service: "", date: "", time: "", address: "", city: "", cleaningSubcategory: "", repairingSubcategory: "", laundrySubcategories: [], paintingSubcategory: "", paintingRooms: "1", paintingAreaSize: "", movingSubcategory: "", movingRooms: "1", pickupAddress: "", pickupCity: "", dropoffAddress: "", dropoffCity: "", chefCuisine: "", guestCount: "2", chefSuppliesIngredients: "yes", spaSubcategory: "", rooms: "2", duration: "3", frequency: "once", specialRequest: "", neededMaterial: "no", description: "", paymentMethod: "cash" });
     }, 300);
   };
 
@@ -426,6 +566,28 @@ export function NewOrderDialog({ open, onClose }: NewOrderDialogProps) {
                     <h3 className="text-sm font-bold mb-4 flex items-center gap-2" style={{ color: "var(--hayyah-navy)" }}>
                       <BedDouble className="w-4 h-4" style={{ color: "var(--hayyah-blue)" }} /> Cleaning Details
                     </h3>
+                    <div className="mb-4">
+                      <label className="text-xs font-semibold text-gray-600 block mb-1.5">
+                        Cleaning Type <span className="text-red-500">*</span>
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {CLEANING_SUBCATEGORIES.map((type) => (
+                          <button
+                            key={type}
+                            type="button"
+                            onClick={() => setVal("cleaningSubcategory", type)}
+                            className="px-3 py-2.5 rounded-xl text-xs text-left font-medium transition-all border"
+                            style={{
+                              background: form.cleaningSubcategory === type ? "rgba(0,136,251,0.08)" : "#f9fafb",
+                              borderColor: form.cleaningSubcategory === type ? "var(--hayyah-blue)" : "transparent",
+                              color: form.cleaningSubcategory === type ? "var(--hayyah-blue)" : "#374151",
+                            }}
+                          >
+                            {type}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="text-xs font-semibold text-gray-600 block mb-1.5">
@@ -447,7 +609,7 @@ export function NewOrderDialog({ open, onClose }: NewOrderDialogProps) {
                       </div>
                       <div>
                         <label className="text-xs font-semibold text-gray-600 block mb-1.5">
-                          <span className="flex items-center gap-1"><Timer className="w-3 h-3" /> Duration (hrs)</span>
+                          <span className="flex items-center gap-1"><Timer className="w-3 h-3" /> Hours Needed</span>
                         </label>
                         <div className="flex gap-2">
                           {["2","3","4","5","6","8"].map(d => (
@@ -464,6 +626,28 @@ export function NewOrderDialog({ open, onClose }: NewOrderDialogProps) {
                         </div>
                       </div>
                     </div>
+                    <div className="mt-4">
+                      <label className="text-xs font-semibold text-gray-600 block mb-1.5">
+                        Frequency <span className="text-red-500">*</span>
+                      </label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {CLEANING_FREQUENCIES.map((f) => (
+                          <button
+                            key={f.value}
+                            type="button"
+                            onClick={() => setVal("frequency", f.value)}
+                            className="py-2 rounded-lg text-xs font-semibold border transition-all"
+                            style={{
+                              background: form.frequency === f.value ? "rgba(0,136,251,0.08)" : "#f9fafb",
+                              borderColor: form.frequency === f.value ? "var(--hayyah-blue)" : "transparent",
+                              color: form.frequency === f.value ? "var(--hayyah-blue)" : "#6b7280",
+                            }}
+                          >
+                            {f.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
 
                     <div className="mt-4 flex items-center justify-between p-4 rounded-xl bg-gray-50 border border-transparent">
                       <div>
@@ -478,6 +662,559 @@ export function NewOrderDialog({ open, onClose }: NewOrderDialogProps) {
                         <div className="w-5 h-5 rounded-full bg-white shadow-sm transition-all"
                           style={{ transform: form.neededMaterial === "yes" ? "translateX(24px)" : "translateX(0)" }} />
                       </button>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {isRepairingService(form.service) && (
+                <>
+                  <div className="h-px bg-gray-100" />
+                  <div>
+                    <h3 className="text-sm font-bold mb-4 flex items-center gap-2" style={{ color: "var(--hayyah-navy)" }}>
+                      <Wrench className="w-4 h-4" style={{ color: "var(--hayyah-blue)" }} /> Repairing Details
+                    </h3>
+                    <div className="mb-4">
+                      <label className="text-xs font-semibold text-gray-600 block mb-1.5">
+                        Repair Type <span className="text-red-500">*</span>
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {REPAIRING_SUBCATEGORIES.map((type) => (
+                          <button
+                            key={type}
+                            type="button"
+                            onClick={() => setVal("repairingSubcategory", type)}
+                            className="px-3 py-2.5 rounded-xl text-xs text-left font-medium transition-all border"
+                            style={{
+                              background: form.repairingSubcategory === type ? "rgba(0,136,251,0.08)" : "#f9fafb",
+                              borderColor: form.repairingSubcategory === type ? "var(--hayyah-blue)" : "transparent",
+                              color: form.repairingSubcategory === type ? "var(--hayyah-blue)" : "#374151",
+                            }}
+                          >
+                            {type}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="mb-4">
+                      <label className="text-xs font-semibold text-gray-600 block mb-1.5">Attach Photo</label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                          setRepairPhotoName(e.target.files?.[0]?.name ?? "")
+                        }
+                        className="w-full h-10 px-3 py-1.5 text-sm bg-gray-50 rounded-xl outline-none border border-transparent focus:border-[var(--hayyah-blue)] focus:bg-white transition-colors file:mr-3 file:rounded-lg file:border-0 file:bg-white file:px-2.5 file:py-1 file:text-xs file:font-semibold file:text-gray-600"
+                      />
+                      {repairPhotoName && (
+                        <p className="text-xs text-gray-500 mt-1">Selected: {repairPhotoName}</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-gray-600 block mb-1.5">Special Request</label>
+                      <textarea
+                        value={form.specialRequest}
+                        onChange={set("specialRequest")}
+                        rows={2}
+                        placeholder="Describe the issue or any special instructions..."
+                        className="w-full px-3.5 py-2.5 text-sm bg-gray-50 rounded-xl outline-none border border-transparent focus:border-[var(--hayyah-blue)] focus:bg-white transition-colors resize-none"
+                      />
+                    </div>
+                    <div className="mt-4">
+                      <label className="text-xs font-semibold text-gray-600 block mb-2">Payment Method</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[{ val: "cash", label: "Cash" }, { val: "card", label: "Card" }].map(opt => (
+                          <button
+                            key={opt.val}
+                            type="button"
+                            onClick={() => setVal("paymentMethod", opt.val)}
+                            className="py-2.5 rounded-xl text-sm font-semibold border transition-all"
+                            style={{
+                              background: form.paymentMethod === opt.val ? "rgba(0,136,251,0.08)" : "#f9fafb",
+                              borderColor: form.paymentMethod === opt.val ? "var(--hayyah-blue)" : "transparent",
+                              color: form.paymentMethod === opt.val ? "var(--hayyah-blue)" : "#6b7280",
+                            }}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {isLaundryService(form.service) && (
+                <>
+                  <div className="h-px bg-gray-100" />
+                  <div>
+                    <h3 className="text-sm font-bold mb-4 flex items-center gap-2" style={{ color: "var(--hayyah-navy)" }}>
+                      <Wrench className="w-4 h-4" style={{ color: "var(--hayyah-blue)" }} /> Laundry Details
+                    </h3>
+                    <div className="mb-4">
+                      <label className="text-xs font-semibold text-gray-600 block mb-1.5">
+                        Laundry Type <span className="text-red-500">*</span>
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {LAUNDRY_SUBCATEGORIES.map((type) => (
+                          <button
+                            key={type}
+                            type="button"
+                            onClick={() =>
+                              setForm((prev) => ({
+                                ...prev,
+                                laundrySubcategories: prev.laundrySubcategories.includes(type)
+                                  ? prev.laundrySubcategories.filter((t) => t !== type)
+                                  : [...prev.laundrySubcategories, type],
+                              }))
+                            }
+                            className="px-3 py-2.5 rounded-xl text-xs text-left font-medium transition-all border"
+                            style={{
+                              background: form.laundrySubcategories.includes(type) ? "rgba(0,136,251,0.08)" : "#f9fafb",
+                              borderColor: form.laundrySubcategories.includes(type) ? "var(--hayyah-blue)" : "transparent",
+                              color: form.laundrySubcategories.includes(type) ? "var(--hayyah-blue)" : "#374151",
+                            }}
+                          >
+                            {type}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="mb-4">
+                      <label className="text-xs font-semibold text-gray-600 block mb-1.5">Special Request</label>
+                      <textarea
+                        value={form.specialRequest}
+                        onChange={set("specialRequest")}
+                        rows={2}
+                        placeholder="Any notes for pickup, handling, or delivery..."
+                        className="w-full px-3.5 py-2.5 text-sm bg-gray-50 rounded-xl outline-none border border-transparent focus:border-[var(--hayyah-blue)] focus:bg-white transition-colors resize-none"
+                      />
+                    </div>
+                    <div className="mb-4">
+                      <label className="text-xs font-semibold text-gray-600 block mb-1.5">Attach Photo</label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                          setLaundryPhotoName(e.target.files?.[0]?.name ?? "")
+                        }
+                        className="w-full h-10 px-3 py-1.5 text-sm bg-gray-50 rounded-xl outline-none border border-transparent focus:border-[var(--hayyah-blue)] focus:bg-white transition-colors file:mr-3 file:rounded-lg file:border-0 file:bg-white file:px-2.5 file:py-1 file:text-xs file:font-semibold file:text-gray-600"
+                      />
+                      {laundryPhotoName && (
+                        <p className="text-xs text-gray-500 mt-1">Selected: {laundryPhotoName}</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-gray-600 block mb-2">Payment Method</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[{ val: "cash", label: "Cash" }, { val: "card", label: "Card" }].map(opt => (
+                          <button
+                            key={opt.val}
+                            type="button"
+                            onClick={() => setVal("paymentMethod", opt.val)}
+                            className="py-2.5 rounded-xl text-sm font-semibold border transition-all"
+                            style={{
+                              background: form.paymentMethod === opt.val ? "rgba(0,136,251,0.08)" : "#f9fafb",
+                              borderColor: form.paymentMethod === opt.val ? "var(--hayyah-blue)" : "transparent",
+                              color: form.paymentMethod === opt.val ? "var(--hayyah-blue)" : "#6b7280",
+                            }}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {isPaintingService(form.service) && (
+                <>
+                  <div className="h-px bg-gray-100" />
+                  <div>
+                    <h3 className="text-sm font-bold mb-4 flex items-center gap-2" style={{ color: "var(--hayyah-navy)" }}>
+                      <Wrench className="w-4 h-4" style={{ color: "var(--hayyah-blue)" }} /> Painting Details
+                    </h3>
+                    <div className="mb-4">
+                      <label className="text-xs font-semibold text-gray-600 block mb-1.5">
+                        Painting Type <span className="text-red-500">*</span>
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {PAINTING_SUBCATEGORIES.map((type) => (
+                          <button
+                            key={type}
+                            type="button"
+                            onClick={() => setVal("paintingSubcategory", type)}
+                            className="px-3 py-2.5 rounded-xl text-xs text-left font-medium transition-all border"
+                            style={{
+                              background: form.paintingSubcategory === type ? "rgba(0,136,251,0.08)" : "#f9fafb",
+                              borderColor: form.paintingSubcategory === type ? "var(--hayyah-blue)" : "transparent",
+                              color: form.paintingSubcategory === type ? "var(--hayyah-blue)" : "#374151",
+                            }}
+                          >
+                            {type}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 mb-4">
+                      <div>
+                        <label className="text-xs font-semibold text-gray-600 block mb-1.5">Number of Rooms <span className="text-red-500">*</span></label>
+                        <div className="flex gap-2">
+                          {["1","2","3","4","5","6+"].map(r => (
+                            <button key={r} type="button" onClick={() => setVal("paintingRooms", r === "6+" ? "6" : r)}
+                              className="flex-1 py-2 rounded-lg text-xs font-semibold border transition-all"
+                              style={{
+                                background: form.paintingRooms === (r === "6+" ? "6" : r) ? "rgba(0,136,251,0.08)" : "#f9fafb",
+                                borderColor: form.paintingRooms === (r === "6+" ? "6" : r) ? "var(--hayyah-blue)" : "transparent",
+                                color: form.paintingRooms === (r === "6+" ? "6" : r) ? "var(--hayyah-blue)" : "#6b7280",
+                              }}>
+                              {r}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-gray-600 block mb-1.5">Area Size (m²) <span className="text-red-500">*</span></label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={form.paintingAreaSize}
+                          onChange={set("paintingAreaSize")}
+                          placeholder="e.g. 120"
+                          className="w-full h-10 px-3.5 text-sm bg-gray-50 rounded-xl outline-none border border-transparent focus:border-[var(--hayyah-blue)] focus:bg-white transition-colors"
+                        />
+                      </div>
+                    </div>
+                    <div className="mb-4">
+                      <label className="text-xs font-semibold text-gray-600 block mb-1.5">Special Request</label>
+                      <textarea
+                        value={form.specialRequest}
+                        onChange={set("specialRequest")}
+                        rows={2}
+                        placeholder="Any prep notes, paint preferences, or instructions..."
+                        className="w-full px-3.5 py-2.5 text-sm bg-gray-50 rounded-xl outline-none border border-transparent focus:border-[var(--hayyah-blue)] focus:bg-white transition-colors resize-none"
+                      />
+                    </div>
+                    <div className="mb-4">
+                      <label className="text-xs font-semibold text-gray-600 block mb-1.5">Attach Photo</label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                          setPaintingPhotoName(e.target.files?.[0]?.name ?? "")
+                        }
+                        className="w-full h-10 px-3 py-1.5 text-sm bg-gray-50 rounded-xl outline-none border border-transparent focus:border-[var(--hayyah-blue)] focus:bg-white transition-colors file:mr-3 file:rounded-lg file:border-0 file:bg-white file:px-2.5 file:py-1 file:text-xs file:font-semibold file:text-gray-600"
+                      />
+                      {paintingPhotoName && (
+                        <p className="text-xs text-gray-500 mt-1">Selected: {paintingPhotoName}</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-gray-600 block mb-2">Payment Method</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[{ val: "cash", label: "Cash" }, { val: "card", label: "Card" }].map(opt => (
+                          <button
+                            key={opt.val}
+                            type="button"
+                            onClick={() => setVal("paymentMethod", opt.val)}
+                            className="py-2.5 rounded-xl text-sm font-semibold border transition-all"
+                            style={{
+                              background: form.paymentMethod === opt.val ? "rgba(0,136,251,0.08)" : "#f9fafb",
+                              borderColor: form.paymentMethod === opt.val ? "var(--hayyah-blue)" : "transparent",
+                              color: form.paymentMethod === opt.val ? "var(--hayyah-blue)" : "#6b7280",
+                            }}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {isMovingService(form.service) && (
+                <>
+                  <div className="h-px bg-gray-100" />
+                  <div>
+                    <h3 className="text-sm font-bold mb-4 flex items-center gap-2" style={{ color: "var(--hayyah-navy)" }}>
+                      <Wrench className="w-4 h-4" style={{ color: "var(--hayyah-blue)" }} /> Moving Details
+                    </h3>
+                    <div className="mb-4">
+                      <label className="text-xs font-semibold text-gray-600 block mb-1.5">
+                        Moving Type <span className="text-red-500">*</span>
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {MOVING_SUBCATEGORIES.map((type) => (
+                          <button
+                            key={type}
+                            type="button"
+                            onClick={() => setVal("movingSubcategory", type)}
+                            className="px-3 py-2.5 rounded-xl text-xs text-left font-medium transition-all border"
+                            style={{
+                              background: form.movingSubcategory === type ? "rgba(0,136,251,0.08)" : "#f9fafb",
+                              borderColor: form.movingSubcategory === type ? "var(--hayyah-blue)" : "transparent",
+                              color: form.movingSubcategory === type ? "var(--hayyah-blue)" : "#374151",
+                            }}
+                          >
+                            {type}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="mb-4">
+                      <label className="text-xs font-semibold text-gray-600 block mb-1.5">Number of Rooms <span className="text-red-500">*</span></label>
+                      <div className="flex gap-2">
+                        {["1","2","3","4","5","6+"].map(r => (
+                          <button key={r} type="button" onClick={() => setVal("movingRooms", r === "6+" ? "6" : r)}
+                            className="flex-1 py-2 rounded-lg text-xs font-semibold border transition-all"
+                            style={{
+                              background: form.movingRooms === (r === "6+" ? "6" : r) ? "rgba(0,136,251,0.08)" : "#f9fafb",
+                              borderColor: form.movingRooms === (r === "6+" ? "6" : r) ? "var(--hayyah-blue)" : "transparent",
+                              color: form.movingRooms === (r === "6+" ? "6" : r) ? "var(--hayyah-blue)" : "#6b7280",
+                            }}>
+                            {r}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 gap-3 mb-4">
+                      <div>
+                        <label className="text-xs font-semibold text-gray-600 block mb-1.5">Pickup Location <span className="text-red-500">*</span></label>
+                        <input value={form.pickupAddress} onChange={set("pickupAddress")} placeholder="Pickup address"
+                          className="w-full h-10 px-3.5 text-sm bg-gray-50 rounded-xl outline-none border border-transparent focus:border-[var(--hayyah-blue)] focus:bg-white transition-colors" />
+                        <div className="relative mt-2">
+                          <select value={form.pickupCity} onChange={set("pickupCity")}
+                            className="w-full h-10 pl-3.5 pr-9 text-sm bg-gray-50 rounded-xl outline-none border border-transparent focus:border-[var(--hayyah-blue)] focus:bg-white appearance-none transition-colors">
+                            <option value="">Select pickup city...</option>
+                            {CITIES.map(c => <option key={`pickup-${c}`} value={c}>{c}</option>)}
+                          </select>
+                          <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-gray-600 block mb-1.5">Drop-off Location <span className="text-red-500">*</span></label>
+                        <input value={form.dropoffAddress} onChange={set("dropoffAddress")} placeholder="Drop-off address"
+                          className="w-full h-10 px-3.5 text-sm bg-gray-50 rounded-xl outline-none border border-transparent focus:border-[var(--hayyah-blue)] focus:bg-white transition-colors" />
+                        <div className="relative mt-2">
+                          <select value={form.dropoffCity} onChange={set("dropoffCity")}
+                            className="w-full h-10 pl-3.5 pr-9 text-sm bg-gray-50 rounded-xl outline-none border border-transparent focus:border-[var(--hayyah-blue)] focus:bg-white appearance-none transition-colors">
+                            <option value="">Select drop-off city...</option>
+                            {CITIES.map(c => <option key={`dropoff-${c}`} value={c}>{c}</option>)}
+                          </select>
+                          <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mb-4">
+                      <label className="text-xs font-semibold text-gray-600 block mb-1.5">Special Request</label>
+                      <textarea
+                        value={form.specialRequest}
+                        onChange={set("specialRequest")}
+                        rows={2}
+                        placeholder="Any elevator, stairs, parking, or handling notes..."
+                        className="w-full px-3.5 py-2.5 text-sm bg-gray-50 rounded-xl outline-none border border-transparent focus:border-[var(--hayyah-blue)] focus:bg-white transition-colors resize-none"
+                      />
+                    </div>
+                    <div className="mb-4">
+                      <label className="text-xs font-semibold text-gray-600 block mb-1.5">Large Item Photo</label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                          setMovingPhotoName(e.target.files?.[0]?.name ?? "")
+                        }
+                        className="w-full h-10 px-3 py-1.5 text-sm bg-gray-50 rounded-xl outline-none border border-transparent focus:border-[var(--hayyah-blue)] focus:bg-white transition-colors file:mr-3 file:rounded-lg file:border-0 file:bg-white file:px-2.5 file:py-1 file:text-xs file:font-semibold file:text-gray-600"
+                      />
+                      {movingPhotoName && (
+                        <p className="text-xs text-gray-500 mt-1">Selected: {movingPhotoName}</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-gray-600 block mb-2">Payment Method</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[{ val: "cash", label: "Cash" }, { val: "card", label: "Card" }].map(opt => (
+                          <button
+                            key={opt.val}
+                            type="button"
+                            onClick={() => setVal("paymentMethod", opt.val)}
+                            className="py-2.5 rounded-xl text-sm font-semibold border transition-all"
+                            style={{
+                              background: form.paymentMethod === opt.val ? "rgba(0,136,251,0.08)" : "#f9fafb",
+                              borderColor: form.paymentMethod === opt.val ? "var(--hayyah-blue)" : "transparent",
+                              color: form.paymentMethod === opt.val ? "var(--hayyah-blue)" : "#6b7280",
+                            }}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {isChefService(form.service) && (
+                <>
+                  <div className="h-px bg-gray-100" />
+                  <div>
+                    <h3 className="text-sm font-bold mb-4 flex items-center gap-2" style={{ color: "var(--hayyah-navy)" }}>
+                      <Wrench className="w-4 h-4" style={{ color: "var(--hayyah-blue)" }} /> Chef Details
+                    </h3>
+                    <div className="mb-4">
+                      <label className="text-xs font-semibold text-gray-600 block mb-1.5">
+                        Cuisine Type <span className="text-red-500">*</span>
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {CHEF_SUBCATEGORIES.map((type) => (
+                          <button
+                            key={type}
+                            type="button"
+                            onClick={() => setVal("chefCuisine", type)}
+                            className="px-3 py-2.5 rounded-xl text-xs text-left font-medium transition-all border"
+                            style={{
+                              background: form.chefCuisine === type ? "rgba(0,136,251,0.08)" : "#f9fafb",
+                              borderColor: form.chefCuisine === type ? "var(--hayyah-blue)" : "transparent",
+                              color: form.chefCuisine === type ? "var(--hayyah-blue)" : "#374151",
+                            }}
+                          >
+                            {type}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="mb-4">
+                      <label className="text-xs font-semibold text-gray-600 block mb-1.5">Number of Guests <span className="text-red-500">*</span></label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={form.guestCount}
+                        onChange={set("guestCount")}
+                        placeholder="e.g. 6"
+                        className="w-full h-10 px-3.5 text-sm bg-gray-50 rounded-xl outline-none border border-transparent focus:border-[var(--hayyah-blue)] focus:bg-white transition-colors"
+                      />
+                    </div>
+                    <div className="mb-4 flex items-center justify-between p-4 rounded-xl bg-gray-50 border border-transparent">
+                      <div>
+                        <p className="text-sm font-semibold text-gray-800">Chef supplies ingredients?</p>
+                        <p className="text-xs text-gray-500 mt-0.5">Toggle based on customer preference</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setVal("chefSuppliesIngredients", form.chefSuppliesIngredients === "yes" ? "no" : "yes")}
+                        className="w-12 h-6 rounded-full transition-all flex items-center px-0.5 flex-shrink-0"
+                        style={{ background: form.chefSuppliesIngredients === "yes" ? "var(--hayyah-blue)" : "#d1d5db" }}>
+                        <div className="w-5 h-5 rounded-full bg-white shadow-sm transition-all"
+                          style={{ transform: form.chefSuppliesIngredients === "yes" ? "translateX(24px)" : "translateX(0)" }} />
+                      </button>
+                    </div>
+                    <div className="mb-4">
+                      <label className="text-xs font-semibold text-gray-600 block mb-1.5">Special Request</label>
+                      <textarea
+                        value={form.specialRequest}
+                        onChange={set("specialRequest")}
+                        rows={2}
+                        placeholder="Any dietary restrictions, allergies, or menu notes..."
+                        className="w-full px-3.5 py-2.5 text-sm bg-gray-50 rounded-xl outline-none border border-transparent focus:border-[var(--hayyah-blue)] focus:bg-white transition-colors resize-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-gray-600 block mb-2">Payment Method</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[{ val: "cash", label: "Cash" }, { val: "card", label: "Card" }].map(opt => (
+                          <button
+                            key={opt.val}
+                            type="button"
+                            onClick={() => setVal("paymentMethod", opt.val)}
+                            className="py-2.5 rounded-xl text-sm font-semibold border transition-all"
+                            style={{
+                              background: form.paymentMethod === opt.val ? "rgba(0,136,251,0.08)" : "#f9fafb",
+                              borderColor: form.paymentMethod === opt.val ? "var(--hayyah-blue)" : "transparent",
+                              color: form.paymentMethod === opt.val ? "var(--hayyah-blue)" : "#6b7280",
+                            }}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {isSpaService(form.service) && (
+                <>
+                  <div className="h-px bg-gray-100" />
+                  <div>
+                    <h3 className="text-sm font-bold mb-4 flex items-center gap-2" style={{ color: "var(--hayyah-navy)" }}>
+                      <Wrench className="w-4 h-4" style={{ color: "var(--hayyah-blue)" }} /> Spa Details
+                    </h3>
+                    <div className="mb-4">
+                      <label className="text-xs font-semibold text-gray-600 block mb-1.5">
+                        Service Type <span className="text-red-500">*</span>
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {SPA_SUBCATEGORIES.map((type) => (
+                          <button
+                            key={type}
+                            type="button"
+                            onClick={() => setVal("spaSubcategory", type)}
+                            className="px-3 py-2.5 rounded-xl text-xs text-left font-medium transition-all border"
+                            style={{
+                              background: form.spaSubcategory === type ? "rgba(0,136,251,0.08)" : "#f9fafb",
+                              borderColor: form.spaSubcategory === type ? "var(--hayyah-blue)" : "transparent",
+                              color: form.spaSubcategory === type ? "var(--hayyah-blue)" : "#374151",
+                            }}
+                          >
+                            {type}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="mb-4">
+                      <label className="text-xs font-semibold text-gray-600 block mb-1.5">Special Request</label>
+                      <textarea
+                        value={form.specialRequest}
+                        onChange={set("specialRequest")}
+                        rows={2}
+                        placeholder="Any therapist preferences, notes, or concerns..."
+                        className="w-full px-3.5 py-2.5 text-sm bg-gray-50 rounded-xl outline-none border border-transparent focus:border-[var(--hayyah-blue)] focus:bg-white transition-colors resize-none"
+                      />
+                    </div>
+                    <div className="mb-4">
+                      <label className="text-xs font-semibold text-gray-600 block mb-1.5">Attach Photo</label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                          setSpaPhotoName(e.target.files?.[0]?.name ?? "")
+                        }
+                        className="w-full h-10 px-3 py-1.5 text-sm bg-gray-50 rounded-xl outline-none border border-transparent focus:border-[var(--hayyah-blue)] focus:bg-white transition-colors file:mr-3 file:rounded-lg file:border-0 file:bg-white file:px-2.5 file:py-1 file:text-xs file:font-semibold file:text-gray-600"
+                      />
+                      {spaPhotoName && (
+                        <p className="text-xs text-gray-500 mt-1">Selected: {spaPhotoName}</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-gray-600 block mb-2">Payment Method</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[{ val: "cash", label: "Cash" }, { val: "card", label: "Card" }].map(opt => (
+                          <button
+                            key={opt.val}
+                            type="button"
+                            onClick={() => setVal("paymentMethod", opt.val)}
+                            className="py-2.5 rounded-xl text-sm font-semibold border transition-all"
+                            style={{
+                              background: form.paymentMethod === opt.val ? "rgba(0,136,251,0.08)" : "#f9fafb",
+                              borderColor: form.paymentMethod === opt.val ? "var(--hayyah-blue)" : "transparent",
+                              color: form.paymentMethod === opt.val ? "var(--hayyah-blue)" : "#6b7280",
+                            }}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </>
@@ -510,9 +1247,53 @@ export function NewOrderDialog({ open, onClose }: NewOrderDialogProps) {
                   { label: "Time",        value: form.time },
                   { label: "Location",    value: [form.address, form.city].filter(Boolean).join(", ") || "—" },
                   ...(isCleaningService(form.service) ? [
+                    { label: "Cleaning",  value: form.cleaningSubcategory || "—" },
                     { label: "Rooms",     value: `${form.rooms} room${form.rooms === "1" ? "" : "s"}` },
-                    { label: "Duration",  value: `${form.duration} hours` },
+                    { label: "Hours",     value: `${form.duration} hours` },
+                    { label: "Frequency", value: CLEANING_FREQUENCIES.find((f) => f.value === form.frequency)?.label || "—" },
                     { label: "Materials", value: form.neededMaterial === "yes" ? "Included" : "Not needed" },
+                  ] : []),
+                  ...(isRepairingService(form.service) ? [
+                    { label: "Repair Type", value: form.repairingSubcategory || "—" },
+                    { label: "Photo",       value: repairPhotoName || "Not attached" },
+                    { label: "Request",     value: form.specialRequest || "—" },
+                    { label: "Payment",     value: form.paymentMethod === "card" ? "Card" : "Cash" },
+                  ] : []),
+                  ...(isLaundryService(form.service) ? [
+                    { label: "Laundry Type", value: form.laundrySubcategories.length > 0 ? form.laundrySubcategories.join(", ") : "—" },
+                    { label: "Request",      value: form.specialRequest || "—" },
+                    { label: "Photo",        value: laundryPhotoName || "Not attached" },
+                    { label: "Payment",      value: form.paymentMethod === "card" ? "Card" : "Cash" },
+                  ] : []),
+                  ...(isPaintingService(form.service) ? [
+                    { label: "Painting Type", value: form.paintingSubcategory || "—" },
+                    { label: "Rooms",         value: `${form.paintingRooms} room${form.paintingRooms === "1" ? "" : "s"}` },
+                    { label: "Area (m²)",     value: form.paintingAreaSize || "—" },
+                    { label: "Request",       value: form.specialRequest || "—" },
+                    { label: "Photo",         value: paintingPhotoName || "Not attached" },
+                    { label: "Payment",       value: form.paymentMethod === "card" ? "Card" : "Cash" },
+                  ] : []),
+                  ...(isMovingService(form.service) ? [
+                    { label: "Moving Type",   value: form.movingSubcategory || "—" },
+                    { label: "Rooms",         value: `${form.movingRooms} room${form.movingRooms === "1" ? "" : "s"}` },
+                    { label: "Pickup",        value: [form.pickupAddress, form.pickupCity].filter(Boolean).join(", ") || "—" },
+                    { label: "Drop-off",      value: [form.dropoffAddress, form.dropoffCity].filter(Boolean).join(", ") || "—" },
+                    { label: "Request",       value: form.specialRequest || "—" },
+                    { label: "Large Item",    value: movingPhotoName || "Not attached" },
+                    { label: "Payment",       value: form.paymentMethod === "card" ? "Card" : "Cash" },
+                  ] : []),
+                  ...(isChefService(form.service) ? [
+                    { label: "Cuisine",       value: form.chefCuisine || "—" },
+                    { label: "Guests",        value: form.guestCount || "—" },
+                    { label: "Ingredients",   value: form.chefSuppliesIngredients === "yes" ? "Chef supplies" : "Customer supplies" },
+                    { label: "Request",       value: form.specialRequest || "—" },
+                    { label: "Payment",       value: form.paymentMethod === "card" ? "Card" : "Cash" },
+                  ] : []),
+                  ...(isSpaService(form.service) ? [
+                    { label: "Spa Service",   value: form.spaSubcategory || "—" },
+                    { label: "Request",       value: form.specialRequest || "—" },
+                    { label: "Photo",         value: spaPhotoName || "Not attached" },
+                    { label: "Payment",       value: form.paymentMethod === "card" ? "Card" : "Cash" },
                   ] : []),
                 ].map((row, i) => (
                   <div key={i} className="flex items-center justify-between px-4 py-3 border-b border-gray-50 last:border-0">
@@ -537,8 +1318,8 @@ export function NewOrderDialog({ open, onClose }: NewOrderDialogProps) {
 
               <div>
                 <label className="text-xs font-semibold text-gray-600 block mb-2">Payment Method</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {[{ val: "cash", label: "Cash" }, { val: "card", label: "Card" }, { val: "mada", label: "Mada" }].map(opt => (
+                <div className="grid grid-cols-2 gap-2">
+                  {[{ val: "cash", label: "Cash" }, { val: "card", label: "Card" }].map(opt => (
                     <button key={opt.val} type="button" onClick={() => setVal("paymentMethod", opt.val)}
                       className="py-2.5 rounded-xl text-sm font-semibold border transition-all"
                       style={{

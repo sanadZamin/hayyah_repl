@@ -88,9 +88,14 @@ export async function apiFetch(input: RequestInfo, init: RequestInit = {}): Prom
       ? apiUrl(input.slice(4))
       : input;
 
+  const method = String(init.method ?? "GET").toUpperCase();
+  const isCacheableMethod = method === "GET" || method === "HEAD";
+
   const makeRequest = (t: string) =>
     fetch(url, {
       ...init,
+      // Avoid stale API responses when the user hits Refresh or remounts quickly
+      cache: isCacheableMethod && init.cache === undefined ? "no-store" : init.cache,
       headers: {
         Accept: "application/json",
         ...(init.headers ?? {}),

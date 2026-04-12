@@ -1,10 +1,12 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useLocation } from "wouter";
 import {
   LayoutDashboard,
   Users,
   ShoppingBag,
   Wrench,
+  Clock3,
+  CircleDollarSign,
   Bell,
   Search,
   ChevronDown,
@@ -15,12 +17,20 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 
-const navItems = [
+const baseNavItems = [
   { icon: LayoutDashboard, label: "Dashboard", id: "dashboard", href: "/" },
   { icon: Users, label: "Customers", id: "customers", href: "/customers" },
   { icon: ShoppingBag, label: "Tasks", id: "orders", href: "/orders" },
+  { icon: Clock3, label: "Task History", id: "task-history", href: "/task-history" },
   { icon: Wrench, label: "Providers", id: "providers", href: "/providers" },
 ];
+
+const adminNavItem = {
+  icon: CircleDollarSign,
+  label: "Pricing rules",
+  id: "pricing-rules",
+  href: "/pricing-rules",
+} as const;
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -30,7 +40,12 @@ interface AppLayoutProps {
 export function AppLayout({ children, activeNav = "dashboard" }: AppLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [, setLocation] = useLocation();
-  const { user, logout } = useAuth();
+  const { user, logout, isAdmin } = useAuth();
+
+  const navItems = useMemo(
+    () => (isAdmin ? [...baseNavItems, adminNavItem] : baseNavItems),
+    [isAdmin],
+  );
 
   const handleLogout = () => {
     logout();

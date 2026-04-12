@@ -1,3 +1,5 @@
+import { normalizeViteApiBaseUrl } from "./normalize-vite-api-base-url";
+
 export type CustomFetchOptions = RequestInit & {
   responseType?: "json" | "text" | "blob" | "auto";
 };
@@ -29,6 +31,15 @@ function resolveUrl(input: RequestInfo | URL): string {
   if (typeof input === "string") return input;
   if (isUrl(input)) return input.toString();
   return input.url;
+}
+
+/** Same as CRM `VITE_API_BASE_URL`: full origin so generated `/api/*` calls hit a remote API. */
+function resolveRequestInput(input: RequestInfo | URL): RequestInfo | URL {
+  const origin = normalizeViteApiBaseUrl(import.meta.env.VITE_API_BASE_URL);
+  if (!origin || typeof input !== "string") return input;
+  if (input.startsWith("http://") || input.startsWith("https://")) return input;
+  if (input.startsWith("/api/")) return `${origin}${input}`;
+  return input;
 }
 
 function mergeHeaders(...sources: Array<HeadersInit | undefined>): Headers {
@@ -297,9 +308,10 @@ export async function customFetch<T = unknown>(
     headers.set("accept", DEFAULT_JSON_ACCEPT);
   }
 
-  const requestInfo = { method, url: resolveUrl(input) };
+  const resolvedInput = resolveRequestInput(input);
+  const requestInfo = { method, url: resolveUrl(resolvedInput) };
 
-  const response = await fetch(input, { ...init, method, headers });
+  const response = await fetch(resolvedInput, { ...init, method, headers });
 
   if (!response.ok) {
     const errorData = await parseErrorBody(response, method);

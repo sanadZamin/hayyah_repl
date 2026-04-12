@@ -8,10 +8,12 @@ import dashboardRouter from "./dashboard";
 import authRouter from "./auth";
 import tasksRouter from "./tasks";
 import usersRouter from "./users";
+import pricingRouter from "./pricing";
 
 const router: IRouter = Router();
 
 router.use(authRouter);
+router.use(pricingRouter);
 router.use(tasksRouter);
 router.use(usersRouter);
 router.use(healthRouter);

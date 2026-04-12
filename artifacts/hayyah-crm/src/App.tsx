@@ -10,6 +10,8 @@ import Dashboard from "@/pages/dashboard";
 import Customers from "@/pages/customers";
 import Orders from "@/pages/orders";
 import Providers from "@/pages/providers";
+import TaskHistoryPage from "@/pages/task-history";
+import PricingRulesPage from "@/pages/pricing-rules";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -44,6 +46,8 @@ function ProtectedRouter() {
       <Route path="/orders" component={Orders} />
       <Route path="/bookings"><Redirect to="/orders" /></Route>
       <Route path="/providers" component={Providers} />
+      <Route path="/task-history" component={TaskHistoryPage} />
+      <Route path="/pricing-rules" component={PricingRulesPage} />
       <Route path="/technicians"><Redirect to="/providers" /></Route>
       <Route component={NotFound} />
     </Switch>

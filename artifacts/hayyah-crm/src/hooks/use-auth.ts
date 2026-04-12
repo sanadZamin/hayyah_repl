@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { apiUrl } from "@/lib/api-url";
 
 const AUTH_KEY = "hayyah_auth";
@@ -30,15 +30,44 @@ function parseJwt(token: string): Record<string, unknown> {
   }
 }
 
-export function useAuth() {
-  const [user, setUser] = useState<AuthUser | null>(() => {
-    try {
-      const stored = localStorage.getItem(AUTH_KEY);
-      return stored ? JSON.parse(stored) : null;
-    } catch {
+/** Keycloak-style JWT: realm_access.roles + resource_access.*.roles */
+export function isAdminFromToken(token: string | null): boolean {
+  if (!token) return false;
+  const claims = parseJwt(token);
+  const realm = (claims.realm_access as { roles?: string[] } | undefined)?.roles ?? [];
+  const rc = claims.resource_access as Record<string, { roles?: string[] }> | undefined;
+  const clientRoles = rc
+    ? Object.values(rc).flatMap((v) => v?.roles ?? [])
+    : [];
+  const all = [...realm, ...clientRoles].map((r) => String(r).toUpperCase());
+  return all.some(
+    (r) =>
+      r === "ADMIN" ||
+      r === "APP_ADMIN" ||
+      r === "ROLE_ADMIN" ||
+      r === "REALM-ADMIN",
+  );
+}
+
+function readStoredUserIfAdmin(): AuthUser | null {
+  try {
+    const tokenStored = localStorage.getItem(TOKEN_KEY);
+    const authStored = localStorage.getItem(AUTH_KEY);
+    if (!tokenStored || !authStored) return null;
+    const data: TokenData = JSON.parse(tokenStored);
+    if (!data.access_token || !isAdminFromToken(data.access_token)) {
+      localStorage.removeItem(AUTH_KEY);
+      localStorage.removeItem(TOKEN_KEY);
       return null;
     }
-  });
+    return JSON.parse(authStored) as AuthUser;
+  } catch {
+    return null;
+  }
+}
+
+export function useAuth() {
+  const [user, setUser] = useState<AuthUser | null>(() => readStoredUserIfAdmin());
 
   // Listen for forced logout from token refresh failures
   useEffect(() => {
@@ -72,6 +101,17 @@ export function useAuth() {
       }
 
       const data: TokenData = await res.json();
+      if (!data.access_token) {
+        return { success: false, error: "Invalid response from authentication server." };
+      }
+
+      if (!isAdminFromToken(data.access_token)) {
+        return {
+          success: false,
+          error: "This account is not authorized. Admin access is required to use Hayyah CRM.",
+        };
+      }
+
       const claims = parseJwt(data.access_token);
 
       const authUser: AuthUser = {
@@ -107,5 +147,7 @@ export function useAuth() {
     }
   };
 
-  return { user, login, logout, getToken, isAuthenticated: !!user };
+  const isAdmin = useMemo(() => isAdminFromToken(getToken()), [user]);
+
+  return { user, login, logout, getToken, isAuthenticated: !!user, isAdmin };
 }

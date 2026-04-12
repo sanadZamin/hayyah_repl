@@ -104,12 +104,16 @@ router.get("/tasks", async (req, res) => {
   const token = auth.slice(7);
   const claims = parseJwt(token);
   const userId = (claims.sub as string) || "";
+  const page = typeof req.query.page === "string" ? req.query.page : "0";
+  const size = typeof req.query.size === "string" ? req.query.size : "10";
+  const pageNum = Math.max(0, Number(page) || 0);
+  const sizeNum = Math.max(1, Number(size) || 10);
+  const paging = `page=${encodeURIComponent(page)}&size=${encodeURIComponent(size)}`;
 
   const candidates = [
-    `${BASE_URL}/tasks`,
-    `${BASE_URL}/tasks?userID=${userId}`,
-    `${BASE_URL}/tasks?userId=${userId}`,
-    `${BASE_URL}/tasks/user/${userId}`,
+    `${BASE_URL}/tasks?${paging}`,
+    `${BASE_URL}/tasks?${paging}&userID=${userId}`,
+    `${BASE_URL}/tasks?${paging}&userId=${userId}`,
   ];
 
   let lastStatus = 502;
@@ -121,6 +125,20 @@ router.get("/tasks", async (req, res) => {
     if (status === 200) {
       let parsed: unknown;
       try { parsed = JSON.parse(data); } catch { parsed = []; }
+      // Normalize array responses into paginated envelope so frontend can navigate pages.
+      if (Array.isArray(parsed)) {
+        const content = parsed;
+        res.status(200).json({
+          content,
+          page: pageNum,
+          size: sizeNum,
+          totalElements: content.length,
+          totalPages: content.length === sizeNum ? pageNum + 2 : pageNum + 1,
+          hasNext: content.length === sizeNum,
+          hasPrevious: pageNum > 0,
+        });
+        return;
+      }
       res.status(200).json(parsed);
       return;
     }
