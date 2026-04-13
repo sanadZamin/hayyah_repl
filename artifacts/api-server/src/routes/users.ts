@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Request, type Response } from "express";
 import { request as httpsRequest } from "node:https";
 
 const router = Router();
@@ -47,7 +47,7 @@ function hayyahRequest(
   });
 }
 
-router.get("/users", async (req, res) => {
+async function proxyListUsers(req: Request, res: Response) {
   const auth = req.headers.authorization;
   if (!auth || !auth.startsWith("Bearer ")) {
     res.status(401).json({ error: "unauthorized" });
@@ -73,7 +73,12 @@ router.get("/users", async (req, res) => {
     console.error("[users] error:", err);
     res.status(502).json({ error: "proxy_error", error_description: "Could not reach users API." });
   }
-});
+}
+
+/** Hayyah list endpoint is `GET /api/v1/user` (singular). */
+router.get("/user", proxyListUsers);
+/** Legacy path — same upstream. */
+router.get("/users", proxyListUsers);
 
 router.post("/v1/user/create", async (req, res) => {
   const auth = req.headers.authorization;
