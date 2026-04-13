@@ -103,6 +103,26 @@ export interface UpdateBooking {
 }
 
 /**
+ * Case-insensitive on server; send uppercase.
+ */
+export type TechnicianSpecialization =
+  (typeof TechnicianSpecialization)[keyof typeof TechnicianSpecialization];
+
+export const TechnicianSpecialization = {
+  CLEANER: "CLEANER",
+  LAUNDRY: "LAUNDRY",
+  ELECTRICIAN: "ELECTRICIAN",
+  PAINTER: "PAINTER",
+  PLUMBER: "PLUMBER",
+  CARPENTER: "CARPENTER",
+  HANDYMAN: "HANDYMAN",
+  MOVER: "MOVER",
+  CHEF: "CHEF",
+  HVAC: "HVAC",
+  LOCKSMITH: "LOCKSMITH",
+} as const;
+
+/**
  * Hayyah v1 technician profile (hayyah.me/api/v1/technicians)
  */
 export interface Technician {
@@ -111,20 +131,69 @@ export interface Technician {
   firstName: string;
   lastName: string;
   email: string;
-  specialization: string;
+  specialization: TechnicianSpecialization;
   verified: boolean;
   rating?: number | null;
-  bio?: string;
+  bio?: string | null;
   createdAt: number;
 }
 
+/**
+ * User id comes from JWT (sub), not the body. Caller must be provider or admin.
+
+ */
 export interface CreateTechnician {
+  specialization: TechnicianSpecialization;
+  bio?: string;
+}
+
+/**
+ * Request body for POST /api/v1/user/create (new user). JSON property names match Spring (camelCase).
+
+ */
+export interface CreateAppUser {
   firstName: string;
   lastName: string;
+  userName: string;
   email: string;
-  specialization: string;
+  /** E.164-style after normalization (e.g. +971501234567) */
+  mobileNumber: string;
+  /** Application role (e.g. user, provider) */
+  role: string;
+}
+
+/**
+ * Request body for POST /api/v1/user/createExternal — sync/profile when external user id is known.
+
+ */
+export interface CreateExternalAppUser {
+  /** Keycloak or external system user id */
+  id: string;
+  firstName: string;
+  lastName: string;
+  userName: string;
+  email: string;
+  mobileNumber: string;
+  role: string;
+}
+
+/**
+ * Spring response for user create endpoints (201). See AppUserController / SpringDoc for full schema.
+
+ */
+export interface AppUserDto {
+  id?: string;
+  userName?: string;
+  email?: string;
+  firstName?: string;
+  lastName?: string;
+  mobileNumber?: string;
+  role?: string;
+}
+
+export interface RegisterTechnicianByAdmin {
+  specialization: TechnicianSpecialization;
   bio?: string;
-  phone?: string;
 }
 
 export interface Service {

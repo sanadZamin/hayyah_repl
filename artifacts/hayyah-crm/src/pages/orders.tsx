@@ -133,6 +133,7 @@ export default function Orders() {
       provider: t.technicianName ?? "Unassigned",
       date: formatDate(t.taskDateTime),
       status: t.orderStatus ?? "NEW",
+      amount: "—",
     }));
   }, [tasks]);
 

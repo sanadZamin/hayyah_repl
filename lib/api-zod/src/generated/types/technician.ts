@@ -5,6 +5,7 @@
  * Hayyah CRM API
  * OpenAPI spec version: 0.1.0
  */
+import type { TechnicianSpecialization } from "./technicianSpecialization";
 
 /**
  * Hayyah v1 technician profile (hayyah.me/api/v1/technicians)
@@ -15,9 +16,9 @@ export interface Technician {
   firstName: string;
   lastName: string;
   email: string;
-  specialization: string;
+  specialization: TechnicianSpecialization;
   verified: boolean;
   rating?: number | null;
-  bio?: string;
+  bio?: string | null;
   createdAt: number;
 }

@@ -66,14 +66,14 @@ router.get("/customers/:id", async (req, res) => {
     const id = parseInt(req.params.id);
     const [customer] = await db.select().from(customersTable).where(eq(customersTable.id, id));
     if (!customer) return res.status(404).json({ error: "Customer not found" });
-    res.json({
+    return res.json({
       ...customer,
       totalSpent: parseFloat(customer.totalSpent as string),
       createdAt: customer.createdAt.toISOString(),
     });
   } catch (e) {
     console.error(e);
-    res.status(500).json({ error: "Failed to fetch customer" });
+    return res.status(500).json({ error: "Failed to fetch customer" });
   }
 });
 
@@ -86,14 +86,14 @@ router.put("/customers/:id", async (req, res) => {
       .where(eq(customersTable.id, id))
       .returning();
     if (!customer) return res.status(404).json({ error: "Customer not found" });
-    res.json({
+    return res.json({
       ...customer,
       totalSpent: parseFloat(customer.totalSpent as string),
       createdAt: customer.createdAt.toISOString(),
     });
   } catch (e) {
     console.error(e);
-    res.status(500).json({ error: "Failed to update customer" });
+    return res.status(500).json({ error: "Failed to update customer" });
   }
 });
 

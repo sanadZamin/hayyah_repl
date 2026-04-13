@@ -10,20 +10,25 @@ export function useTechnicians() {
   return useListTechnicians();
 }
 
-export function useCreateTechnician() {
+export function useCreateTechnician(options?: {
+  successTitle?: string;
+  errorTitle?: string;
+}) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const successTitle = options?.successTitle ?? "Technician registered";
+  const errorTitle = options?.errorTitle ?? "Registration failed";
 
   return useGeneratedCreateTechnician({
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListTechniciansQueryKey() });
-        toast({ title: "Technician created successfully" });
+        toast({ title: successTitle });
       },
       onError: (err) => {
-        toast({ title: "Failed to create technician", variant: "destructive" });
+        toast({ title: errorTitle, variant: "destructive" });
         console.error(err);
-      }
-    }
+      },
+    },
   });
 }

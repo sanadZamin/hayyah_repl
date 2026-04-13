@@ -1,4 +1,10 @@
 import { normalizeViteApiBaseUrl } from "./normalize-vite-api-base-url";
+import {
+  clearSession,
+  getAccessToken,
+  isAuthEndpointUrl,
+  refreshAccessToken,
+} from "./session-auth";
 
 export type CustomFetchOptions = RequestInit & {
   responseType?: "json" | "text" | "blob" | "auto";
@@ -311,7 +317,39 @@ export async function customFetch<T = unknown>(
   const resolvedInput = resolveRequestInput(input);
   const requestInfo = { method, url: resolveUrl(resolvedInput) };
 
-  const response = await fetch(resolvedInput, { ...init, method, headers });
+  const attachBearerIfNeeded = (h: Headers) => {
+    if (isAuthEndpointUrl(requestInfo.url)) return;
+    if (h.has("authorization") || h.has("Authorization")) return;
+    const t = getAccessToken();
+    if (t) h.set("Authorization", `Bearer ${t}`);
+  };
+
+  attachBearerIfNeeded(headers);
+
+  let response = await fetch(resolvedInput, { ...init, method, headers });
+
+  if (
+    response.status === 401 &&
+    !isAuthEndpointUrl(requestInfo.url) &&
+    method !== "HEAD"
+  ) {
+    const newToken = await refreshAccessToken();
+    if (!newToken) {
+      const errorData = await parseErrorBody(response, method);
+      throw new ApiError(response, errorData, requestInfo);
+    }
+
+    const retryHeaders = new Headers(headers);
+    retryHeaders.set("Authorization", `Bearer ${newToken}`);
+
+    response = await fetch(resolvedInput, { ...init, method, headers: retryHeaders });
+
+    if (response.status === 401) {
+      clearSession();
+      const errorData = await parseErrorBody(response, method);
+      throw new ApiError(response, errorData, requestInfo);
+    }
+  }
 
   if (!response.ok) {
     const errorData = await parseErrorBody(response, method);

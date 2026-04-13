@@ -134,6 +134,7 @@ export function useAuth() {
     localStorage.removeItem(AUTH_KEY);
     localStorage.removeItem(TOKEN_KEY);
     setUser(null);
+    window.dispatchEvent(new CustomEvent("hayyah:logout"));
   };
 
   const getToken = (): string | null => {

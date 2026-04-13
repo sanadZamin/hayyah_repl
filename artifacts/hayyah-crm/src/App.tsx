@@ -1,5 +1,6 @@
+import { useEffect } from "react";
 import { Switch, Route, Router as WouterRouter, useLocation, Redirect } from "wouter";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
@@ -22,6 +23,16 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+function ClearQueryCacheOnLogout() {
+  const qc = useQueryClient();
+  useEffect(() => {
+    const onLogout = () => qc.clear();
+    window.addEventListener("hayyah:logout", onLogout);
+    return () => window.removeEventListener("hayyah:logout", onLogout);
+  }, [qc]);
+  return null;
+}
 
 function ProtectedRouter() {
   const { isAuthenticated } = useAuth();
@@ -57,6 +68,7 @@ function ProtectedRouter() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
+      <ClearQueryCacheOnLogout />
       <TooltipProvider>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
           <Switch>

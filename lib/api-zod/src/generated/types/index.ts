@@ -6,11 +6,14 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./appUserDto";
 export * from "./booking";
 export * from "./bookingStatus";
+export * from "./createAppUser";
 export * from "./createBooking";
 export * from "./createCustomer";
 export * from "./createCustomerStatus";
+export * from "./createExternalAppUser";
 export * from "./createTechnician";
 export * from "./customer";
 export * from "./customerStatus";
@@ -21,7 +24,9 @@ export * from "./listBookingsParams";
 export * from "./listBookingsStatus";
 export * from "./listCustomersParams";
 export * from "./listCustomersStatus";
+export * from "./registerTechnicianByAdmin";
 export * from "./service";
 export * from "./technician";
+export * from "./technicianSpecialization";
 export * from "./updateBooking";
 export * from "./updateBookingStatus";

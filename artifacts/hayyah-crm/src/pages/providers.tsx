@@ -1,8 +1,26 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AppLayout } from "@/components/app-layout";
 import type { Technician } from "@workspace/api-client-react";
 import { useTechnicians } from "@/hooks/use-technicians";
-import { Plus, MapPin, Star, Briefcase, CheckCircle2, LayoutGrid, List as ListIcon, Search, Filter, X, FileCheck, CalendarDays, ShieldCheck, ChevronRight } from "lucide-react";
+import { OnboardTechnicianDialog } from "@/components/onboard-technician-dialog";
+import { Button } from "@/components/ui/button";
+import { specializationLabel } from "@/components/specialization-select";
+import {
+  Plus,
+  MapPin,
+  Star,
+  Briefcase,
+  CheckCircle2,
+  LayoutGrid,
+  List as ListIcon,
+  Search,
+  Filter,
+  X,
+  FileCheck,
+  CalendarDays,
+  ShieldCheck,
+  ChevronRight,
+} from "lucide-react";
 
 interface Provider {
   id: string;
@@ -34,11 +52,23 @@ function statusColor(status: string) {
   }
 }
 
+const AVAILABILITY_FILTERS = [
+  { key: "Available", label: "Verified (available)" },
+  { key: "Off", label: "Unverified / off" },
+  { key: "Busy", label: "Busy" },
+] as const;
+
 export default function Providers() {
   const { data: techData } = useTechnicians();
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedSpecializations, setSelectedSpecializations] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [selectedAvailability, setSelectedAvailability] = useState<Set<string>>(
+    () => new Set(),
+  );
 
   const providers: Provider[] =
     techData && techData.length > 0
@@ -65,12 +95,78 @@ export default function Providers() {
         })
       : MOCK_PROVIDERS;
 
-  const filtered = providers.filter(p => {
-    const q = search.toLowerCase();
-    return !q || p.name.toLowerCase().includes(q) || p.specialty.toLowerCase().includes(q);
-  });
+  const specializationOptions = useMemo(() => {
+    const uniq = new Set<string>();
+    for (const p of providers) {
+      const s = p.specialty.trim();
+      if (s) uniq.add(s);
+    }
+    return Array.from(uniq).sort((a, b) => a.localeCompare(b));
+  }, [providers]);
 
-  const selectedProvider = providers.find(p => p.id === selectedId);
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return providers.filter((p) => {
+      const specLabel = specializationLabel(p.specialty).toLowerCase();
+      const matchesSearch =
+        !q ||
+        p.name.toLowerCase().includes(q) ||
+        p.specialty.toLowerCase().includes(q) ||
+        specLabel.includes(q) ||
+        p.skills.some((sk) => sk.toLowerCase().includes(q));
+
+      const matchesSpec =
+        selectedSpecializations.size === 0 || selectedSpecializations.has(p.specialty);
+
+      const matchesAvail =
+        selectedAvailability.size === 0 || selectedAvailability.has(p.status);
+
+      return matchesSearch && matchesSpec && matchesAvail;
+    });
+  }, [providers, search, selectedSpecializations, selectedAvailability]);
+
+  useEffect(() => {
+    if (selectedId && !filtered.some((p) => p.id === selectedId)) {
+      setSelectedId(null);
+    }
+  }, [filtered, selectedId]);
+
+  const selectedProvider = filtered.find((p) => p.id === selectedId);
+
+  const resetFilters = () => {
+    setSelectedSpecializations(new Set());
+    setSelectedAvailability(new Set());
+    setSearch("");
+  };
+
+  const toggleSpec = (spec: string) => {
+    setSelectedSpecializations((prev) => {
+      const next = new Set(prev);
+      if (next.has(spec)) next.delete(spec);
+      else next.add(spec);
+      return next;
+    });
+  };
+
+  const toggleAvail = (statusKey: string) => {
+    setSelectedAvailability((prev) => {
+      const next = new Set(prev);
+      if (next.has(statusKey)) next.delete(statusKey);
+      else next.add(statusKey);
+      return next;
+    });
+  };
+
+  const hasActiveFilters =
+    selectedSpecializations.size > 0 || selectedAvailability.size > 0 || search.trim() !== "";
+
+  const statsProviders = filtered;
+  const avgRating =
+    statsProviders.length === 0
+      ? "0.0"
+      : (
+          statsProviders.reduce((s, p) => s + p.rating, 0) / statsProviders.length
+        ).toFixed(1);
 
   return (
     <AppLayout activeNav="providers">
@@ -83,31 +179,60 @@ export default function Providers() {
           </div>
           <div className="space-y-6">
             <div>
-              <h3 className="text-sm font-semibold mb-3 text-gray-700">Specialty</h3>
-              <div className="space-y-2.5">
-                {["Deep Cleaning", "AC Maintenance", "Pest Control", "Plumbing", "Painting"].map(s => (
-                  <label key={s} className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
-                    <input type="checkbox" className="rounded" style={{ accentColor: "var(--hayyah-blue)" }} />
-                    {s}
-                  </label>
-                ))}
-              </div>
+              <h3 className="text-sm font-semibold mb-3 text-gray-700">Specialization</h3>
+              {specializationOptions.length === 0 ? (
+                <p className="text-xs text-gray-500">No specializations in the current list.</p>
+              ) : (
+                <div className="space-y-2.5 max-h-48 overflow-y-auto pr-1">
+                  {specializationOptions.map((s) => (
+                    <label
+                      key={s}
+                      className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        className="rounded"
+                        style={{ accentColor: "var(--hayyah-blue)" }}
+                        checked={selectedSpecializations.has(s)}
+                        onChange={() => toggleSpec(s)}
+                      />
+                      <span className="break-words">{specializationLabel(s)}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="h-px bg-gray-100" />
             <div>
-              <h3 className="text-sm font-semibold mb-3 text-gray-700">Availability</h3>
+              <h3 className="text-sm font-semibold mb-3 text-gray-700">Status</h3>
               <div className="space-y-2.5">
-                {["Available Now", "Busy", "Off Duty"].map(s => (
-                  <label key={s} className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
-                    <input type="checkbox" className="rounded" style={{ accentColor: "var(--hayyah-blue)" }} />
-                    {s}
+                {AVAILABILITY_FILTERS.map(({ key, label }) => (
+                  <label
+                    key={key}
+                    className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      className="rounded"
+                      style={{ accentColor: "var(--hayyah-blue)" }}
+                      checked={selectedAvailability.has(key)}
+                      onChange={() => toggleAvail(key)}
+                    />
+                    {label}
                   </label>
                 ))}
               </div>
             </div>
           </div>
           <div className="mt-6">
-            <button className="w-full py-2 rounded-xl bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200 transition-colors">Reset Filters</button>
+            <button
+              type="button"
+              onClick={resetFilters}
+              disabled={!hasActiveFilters}
+              className="w-full py-2 rounded-xl bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Reset filters
+            </button>
           </div>
         </div>
 
@@ -118,14 +243,30 @@ export default function Providers() {
               <h1 className="text-2xl font-bold" style={{ color: "var(--hayyah-navy)" }}>Service Providers</h1>
               <p className="text-gray-500 text-sm mt-1">Manage and track your service fleet</p>
             </div>
-            <button className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white shadow-sm" style={{ background: "var(--hayyah-blue)" }}>
-              <Plus className="w-4 h-4" /> Add Provider
-            </button>
+            <OnboardTechnicianDialog
+              title="Add provider"
+              description="Same as technicians: POST /api/v1/user/create or createExternal, then POST /api/v1/technicians/admin/{userId} (admin). See SpringDoc /v3/api-docs for AppUserDto."
+            >
+              <button
+                type="button"
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white shadow-sm hover:opacity-95 transition-opacity"
+                style={{ background: "var(--hayyah-blue)" }}
+              >
+                <Plus className="w-4 h-4" /> Add Provider
+              </button>
+            </OnboardTechnicianDialog>
           </div>
 
           {/* Stats */}
           <div className="grid grid-cols-3 gap-4 mb-6">
-            {[{ label: "Total Providers", value: String(providers.length) }, { label: "Active Today", value: String(providers.filter(p => p.status === "Available").length) }, { label: "Avg. Rating", value: (providers.reduce((s, p) => s + p.rating, 0) / providers.length).toFixed(1), isRating: true }].map((s, i) => (
+            {[
+              { label: "Showing", value: String(statsProviders.length) },
+              {
+                label: "Verified",
+                value: String(statsProviders.filter((p) => p.status === "Available").length),
+              },
+              { label: "Avg. rating", value: avgRating, isRating: true },
+            ].map((s, i) => (
               <div key={i} className="rounded-xl bg-white shadow-sm px-5 py-4 flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-500">{s.label}</p>
@@ -158,7 +299,14 @@ export default function Providers() {
           </div>
 
           {/* Grid view */}
-          {viewMode === "grid" && (
+          {viewMode === "grid" && filtered.length === 0 && (
+            <div className="rounded-2xl border border-dashed border-gray-200 bg-white py-16 text-center text-sm text-gray-500">
+              {providers.length === 0
+                ? "No providers yet."
+                : "No providers match your search or filters. Try adjusting filters or reset."}
+            </div>
+          )}
+          {viewMode === "grid" && filtered.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 pb-6">
               {filtered.map((p) => (
                 <div
@@ -176,7 +324,7 @@ export default function Providers() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="font-bold truncate" style={{ color: "var(--hayyah-navy)" }}>{p.name}</h3>
-                      <p className="text-xs font-medium mt-0.5 truncate" style={{ color: "var(--hayyah-blue)" }}>{p.specialty}</p>
+                      <p className="text-xs font-medium mt-0.5 truncate" style={{ color: "var(--hayyah-blue)" }}>{specializationLabel(p.specialty)}</p>
                       <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
                         <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {p.city}</span>
                         <span className="flex items-center gap-1"><Star className="w-3 h-3 fill-amber-400 text-amber-400" /> {p.rating}</span>
@@ -206,7 +354,14 @@ export default function Providers() {
           )}
 
           {/* Table view */}
-          {viewMode === "table" && (
+          {viewMode === "table" && filtered.length === 0 && (
+            <div className="rounded-2xl border border-dashed border-gray-200 bg-white py-16 text-center text-sm text-gray-500">
+              {providers.length === 0
+                ? "No providers yet."
+                : "No providers match your search or filters."}
+            </div>
+          )}
+          {viewMode === "table" && filtered.length > 0 && (
             <div className="rounded-2xl bg-white shadow-sm overflow-hidden">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50">
@@ -225,7 +380,7 @@ export default function Providers() {
                           <span className="font-semibold" style={{ color: "var(--hayyah-navy)" }}>{p.name}</span>
                         </div>
                       </td>
-                      <td className="py-3 px-4 text-gray-600">{p.specialty}</td>
+                      <td className="py-3 px-4 text-gray-600">{specializationLabel(p.specialty)}</td>
                       <td className="py-3 px-4 text-gray-600">{p.city}</td>
                       <td className="py-3 px-4">
                         <span className="px-2.5 py-1 rounded-full text-xs font-medium" style={{ background: statusColor(p.status) + "33", color: "#1e293b" }}>{p.status}</span>
@@ -264,10 +419,10 @@ export default function Providers() {
 
             <div className="pt-14 px-6 pb-4 border-b border-gray-100 flex-shrink-0">
               <h2 className="text-xl font-bold" style={{ color: "var(--hayyah-navy)" }}>{selectedProvider.name}</h2>
-              <p className="text-sm font-medium mt-1" style={{ color: "var(--hayyah-blue)" }}>{selectedProvider.specialty}</p>
+              <p className="text-sm font-medium mt-1" style={{ color: "var(--hayyah-blue)" }}>{specializationLabel(selectedProvider.specialty)}</p>
               <div className="flex flex-wrap gap-2 mt-4">
                 {selectedProvider.skills.map((skill, idx) => (
-                  <span key={idx} className="px-2.5 py-1 text-xs font-semibold rounded-md" style={{ background: "var(--hayyah-blue-light)", color: "var(--hayyah-blue)" }}>{skill}</span>
+                  <span key={idx} className="px-2.5 py-1 text-xs font-semibold rounded-md" style={{ background: "var(--hayyah-blue-light)", color: "var(--hayyah-blue)" }}>{specializationLabel(skill)}</span>
                 ))}
               </div>
             </div>
@@ -317,7 +472,7 @@ export default function Providers() {
                       <div key={idx} className="flex gap-3 pl-4 py-1 border-l-2" style={{ borderColor: "var(--hayyah-blue)" }}>
                         <div>
                           <p className="text-xs font-bold" style={{ color: "var(--hayyah-blue)" }}>10:00 AM – 12:00 PM</p>
-                          <p className="text-sm font-semibold text-gray-900">{selectedProvider.specialty} Service</p>
+                          <p className="text-sm font-semibold text-gray-900">{specializationLabel(selectedProvider.specialty)} Service</p>
                           <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5"><MapPin className="w-3 h-3" /> {selectedProvider.city} District</p>
                         </div>
                       </div>

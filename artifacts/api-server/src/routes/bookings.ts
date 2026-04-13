@@ -70,10 +70,10 @@ router.get("/bookings/:id", async (req, res) => {
     const id = parseInt(req.params.id);
     const [booking] = await db.select().from(bookingsTable).where(eq(bookingsTable.id, id));
     if (!booking) return res.status(404).json({ error: "Booking not found" });
-    res.json(await enrichBooking(booking));
+    return res.json(await enrichBooking(booking));
   } catch (e) {
     console.error(e);
-    res.status(500).json({ error: "Failed to fetch booking" });
+    return res.status(500).json({ error: "Failed to fetch booking" });
   }
 });
 
@@ -90,10 +90,10 @@ router.put("/bookings/:id", async (req, res) => {
     
     const [booking] = await db.update(bookingsTable).set(updateData).where(eq(bookingsTable.id, id)).returning();
     if (!booking) return res.status(404).json({ error: "Booking not found" });
-    res.json(await enrichBooking(booking));
+    return res.json(await enrichBooking(booking));
   } catch (e) {
     console.error(e);
-    res.status(500).json({ error: "Failed to update booking" });
+    return res.status(500).json({ error: "Failed to update booking" });
   }
 });
 

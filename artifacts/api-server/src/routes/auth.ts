@@ -6,7 +6,7 @@ const router = Router();
 
 const KEYCLOAK_TOKEN_URL =
   process.env.KEYCLOAK_TOKEN_URL ??
-  "https://hayyah.me/realms/hayyah/protocol/openid-connect/token";
+  "https://hayyah.me/auth/realms/hayyah/protocol/openid-connect/token";
 const CLIENT_ID = "web_client";
 const CLIENT_SECRET = process.env.KEYCLOAK_CLIENT_SECRET ?? "";
 

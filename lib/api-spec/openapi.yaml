@@ -15,6 +15,8 @@ tags:
     description: Booking management
   - name: technicians
     description: Technician management
+  - name: users
+    description: User directory (hayyah v1)
   - name: services
     description: Service catalog
   - name: dashboard
@@ -214,6 +216,81 @@ paths:
               schema:
                 $ref: "#/components/schemas/Booking"
 
+  /v1/user/create:
+    post:
+      operationId: createUser
+      tags: [users]
+      summary: Create app user (Spring POST /api/v1/user/create)
+      description: >
+        Proxies to Hayyah `AppUserController`: new user with no pre-existing Keycloak id.
+        Same email validation and `mobileNumber` normalization as the backend; returns 201 + AppUserDto.
+        Live schema: SpringDoc `/v3/api-docs` or Swagger UI when enabled.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAppUser"
+      responses:
+        "201":
+          description: Created — AppUserDto
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppUserDto"
+
+  /v1/user/createExternal:
+    post:
+      operationId: createExternalAppUser
+      tags: [users]
+      summary: Create/sync external app user (Spring POST /api/v1/user/createExternal)
+      description: >
+        Keycloak "external" path via `createExternalAppUser`: user id is usually already known
+        (Keycloak or another system); behavior if the id does not exist depends on Keycloak.
+        Backend uses `permitAll()`. Proxied without requiring a Bearer token (optional if sent).
+        Returns 201 + AppUserDto.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateExternalAppUser"
+      responses:
+        "201":
+          description: Created or synced — AppUserDto
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppUserDto"
+
+  /v1/technicians/admin/{userId}:
+    post:
+      operationId: registerTechnicianByAdmin
+      tags: [technicians]
+      summary: Register technician profile by admin for an existing user
+      description: >
+        Admin-only endpoint: `POST /api/v1/technicians/admin/{userId}`.
+        Promotes target user to provider when needed, then creates technician profile.
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterTechnicianByAdmin"
+      responses:
+        "201":
+          description: Technician profile created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Technician"
+
   /v1/technicians:
     get:
       operationId: listTechnicians
@@ -231,7 +308,7 @@ paths:
     post:
       operationId: createTechnician
       tags: [technicians]
-      summary: Create a new technician
+      summary: Register technician profile for the authenticated user
       requestBody:
         required: true
         content:
@@ -433,7 +510,7 @@ components:
         email:
           type: string
         specialization:
-          type: string
+          $ref: "#/components/schemas/TechnicianSpecialization"
         verified:
           type: boolean
         rating:
@@ -441,6 +518,7 @@ components:
           nullable: true
         bio:
           type: string
+          nullable: true
         createdAt:
           type: integer
           format: int64
@@ -454,25 +532,120 @@ components:
         - verified
         - createdAt
 
+    TechnicianSpecialization:
+      type: string
+      description: Case-insensitive on server; send uppercase.
+      enum:
+        - CLEANER
+        - LAUNDRY
+        - ELECTRICIAN
+        - PAINTER
+        - PLUMBER
+        - CARPENTER
+        - HANDYMAN
+        - MOVER
+        - CHEF
+        - HVAC
+        - LOCKSMITH
+
     CreateTechnician:
       type: object
+      description: >
+        User id comes from JWT (sub), not the body. Caller must be provider or admin.
+      properties:
+        specialization:
+          $ref: "#/components/schemas/TechnicianSpecialization"
+        bio:
+          type: string
+      required:
+        - specialization
+
+    CreateAppUser:
+      type: object
+      description: >
+        Request body for POST /api/v1/user/create (new user). JSON property names match Spring (camelCase).
       properties:
         firstName:
           type: string
         lastName:
           type: string
+        userName:
+          type: string
         email:
           type: string
-        specialization:
+          format: email
+        mobileNumber:
           type: string
-        bio:
+          description: E.164-style after normalization (e.g. +971501234567)
+        role:
           type: string
-        phone:
-          type: string
+          description: Application role (e.g. user, provider)
       required:
         - firstName
         - lastName
+        - userName
         - email
+        - mobileNumber
+        - role
+
+    CreateExternalAppUser:
+      type: object
+      description: >
+        Request body for POST /api/v1/user/createExternal — sync/profile when external user id is known.
+      properties:
+        id:
+          type: string
+          description: Keycloak or external system user id
+        firstName:
+          type: string
+        lastName:
+          type: string
+        userName:
+          type: string
+        email:
+          type: string
+          format: email
+        mobileNumber:
+          type: string
+        role:
+          type: string
+      required:
+        - id
+        - firstName
+        - lastName
+        - userName
+        - email
+        - mobileNumber
+        - role
+
+    AppUserDto:
+      type: object
+      description: >
+        Spring response for user create endpoints (201). See AppUserController / SpringDoc for full schema.
+      properties:
+        id:
+          type: string
+        userName:
+          type: string
+        email:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        mobileNumber:
+          type: string
+        role:
+          type: string
+
+    RegisterTechnicianByAdmin:
+      type: object
+      properties:
+        specialization:
+          $ref: "#/components/schemas/TechnicianSpecialization"
+        bio:
+          type: string
+      required:
         - specialization
 
     Service:

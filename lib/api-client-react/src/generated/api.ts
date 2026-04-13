@@ -17,15 +17,19 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  AppUserDto,
   Booking,
+  CreateAppUser,
   CreateBooking,
   CreateCustomer,
+  CreateExternalAppUser,
   CreateTechnician,
   Customer,
   DashboardMetrics,
   HealthStatus,
   ListBookingsParams,
   ListCustomersParams,
+  RegisterTechnicianByAdmin,
   Service,
   Technician,
   UpdateBooking,
@@ -908,6 +912,272 @@ export const useUpdateBooking = <
 };
 
 /**
+ * Proxies to Hayyah `AppUserController`: new user with no pre-existing Keycloak id. Same email validation and `mobileNumber` normalization as the backend; returns 201 + AppUserDto. Live schema: SpringDoc `/v3/api-docs` or Swagger UI when enabled.
+
+ * @summary Create app user (Spring POST /api/v1/user/create)
+ */
+export const getCreateUserUrl = () => {
+  return `/api/v1/user/create`;
+};
+
+export const createUser = async (
+  createAppUser: CreateAppUser,
+  options?: RequestInit,
+): Promise<AppUserDto> => {
+  return customFetch<AppUserDto>(getCreateUserUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createAppUser),
+  });
+};
+
+export const getCreateUserMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createUser>>,
+    TError,
+    { data: BodyType<CreateAppUser> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createUser>>,
+  TError,
+  { data: BodyType<CreateAppUser> },
+  TContext
+> => {
+  const mutationKey = ["createUser"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createUser>>,
+    { data: BodyType<CreateAppUser> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createUser(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateUserMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createUser>>
+>;
+export type CreateUserMutationBody = BodyType<CreateAppUser>;
+export type CreateUserMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create app user (Spring POST /api/v1/user/create)
+ */
+export const useCreateUser = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createUser>>,
+    TError,
+    { data: BodyType<CreateAppUser> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createUser>>,
+  TError,
+  { data: BodyType<CreateAppUser> },
+  TContext
+> => {
+  return useMutation(getCreateUserMutationOptions(options));
+};
+
+/**
+ * Keycloak "external" path via `createExternalAppUser`: user id is usually already known (Keycloak or another system); behavior if the id does not exist depends on Keycloak. Backend uses `permitAll()`. Proxied without requiring a Bearer token (optional if sent). Returns 201 + AppUserDto.
+
+ * @summary Create/sync external app user (Spring POST /api/v1/user/createExternal)
+ */
+export const getCreateExternalAppUserUrl = () => {
+  return `/api/v1/user/createExternal`;
+};
+
+export const createExternalAppUser = async (
+  createExternalAppUser: CreateExternalAppUser,
+  options?: RequestInit,
+): Promise<AppUserDto> => {
+  return customFetch<AppUserDto>(getCreateExternalAppUserUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createExternalAppUser),
+  });
+};
+
+export const getCreateExternalAppUserMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createExternalAppUser>>,
+    TError,
+    { data: BodyType<CreateExternalAppUser> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createExternalAppUser>>,
+  TError,
+  { data: BodyType<CreateExternalAppUser> },
+  TContext
+> => {
+  const mutationKey = ["createExternalAppUser"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createExternalAppUser>>,
+    { data: BodyType<CreateExternalAppUser> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createExternalAppUser(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateExternalAppUserMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createExternalAppUser>>
+>;
+export type CreateExternalAppUserMutationBody = BodyType<CreateExternalAppUser>;
+export type CreateExternalAppUserMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create/sync external app user (Spring POST /api/v1/user/createExternal)
+ */
+export const useCreateExternalAppUser = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createExternalAppUser>>,
+    TError,
+    { data: BodyType<CreateExternalAppUser> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createExternalAppUser>>,
+  TError,
+  { data: BodyType<CreateExternalAppUser> },
+  TContext
+> => {
+  return useMutation(getCreateExternalAppUserMutationOptions(options));
+};
+
+/**
+ * Admin-only endpoint: `POST /api/v1/technicians/admin/{userId}`. Promotes target user to provider when needed, then creates technician profile.
+
+ * @summary Register technician profile by admin for an existing user
+ */
+export const getRegisterTechnicianByAdminUrl = (userId: string) => {
+  return `/api/v1/technicians/admin/${userId}`;
+};
+
+export const registerTechnicianByAdmin = async (
+  userId: string,
+  registerTechnicianByAdmin: RegisterTechnicianByAdmin,
+  options?: RequestInit,
+): Promise<Technician> => {
+  return customFetch<Technician>(getRegisterTechnicianByAdminUrl(userId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(registerTechnicianByAdmin),
+  });
+};
+
+export const getRegisterTechnicianByAdminMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof registerTechnicianByAdmin>>,
+    TError,
+    { userId: string; data: BodyType<RegisterTechnicianByAdmin> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof registerTechnicianByAdmin>>,
+  TError,
+  { userId: string; data: BodyType<RegisterTechnicianByAdmin> },
+  TContext
+> => {
+  const mutationKey = ["registerTechnicianByAdmin"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof registerTechnicianByAdmin>>,
+    { userId: string; data: BodyType<RegisterTechnicianByAdmin> }
+  > = (props) => {
+    const { userId, data } = props ?? {};
+
+    return registerTechnicianByAdmin(userId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RegisterTechnicianByAdminMutationResult = NonNullable<
+  Awaited<ReturnType<typeof registerTechnicianByAdmin>>
+>;
+export type RegisterTechnicianByAdminMutationBody =
+  BodyType<RegisterTechnicianByAdmin>;
+export type RegisterTechnicianByAdminMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Register technician profile by admin for an existing user
+ */
+export const useRegisterTechnicianByAdmin = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof registerTechnicianByAdmin>>,
+    TError,
+    { userId: string; data: BodyType<RegisterTechnicianByAdmin> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof registerTechnicianByAdmin>>,
+  TError,
+  { userId: string; data: BodyType<RegisterTechnicianByAdmin> },
+  TContext
+> => {
+  return useMutation(getRegisterTechnicianByAdminMutationOptions(options));
+};
+
+/**
  * @summary List all technicians
  */
 export const getListTechniciansUrl = () => {
@@ -983,7 +1253,7 @@ export function useListTechnicians<
 }
 
 /**
- * @summary Create a new technician
+ * @summary Register technician profile for the authenticated user
  */
 export const getCreateTechnicianUrl = () => {
   return `/api/v1/technicians`;
@@ -1046,7 +1316,7 @@ export type CreateTechnicianMutationBody = BodyType<CreateTechnician>;
 export type CreateTechnicianMutationError = ErrorType<unknown>;
 
 /**
- * @summary Create a new technician
+ * @summary Register technician profile for the authenticated user
  */
 export const useCreateTechnician = <
   TError = ErrorType<unknown>,

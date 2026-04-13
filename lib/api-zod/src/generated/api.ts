@@ -214,6 +214,73 @@ export const UpdateBookingResponse = zod.object({
 });
 
 /**
+ * Proxies to Hayyah `AppUserController`: new user with no pre-existing Keycloak id. Same email validation and `mobileNumber` normalization as the backend; returns 201 + AppUserDto. Live schema: SpringDoc `/v3/api-docs` or Swagger UI when enabled.
+
+ * @summary Create app user (Spring POST /api/v1/user/create)
+ */
+export const CreateUserBody = zod
+  .object({
+    firstName: zod.string(),
+    lastName: zod.string(),
+    userName: zod.string(),
+    email: zod.string().email(),
+    mobileNumber: zod
+      .string()
+      .describe("E.164-style after normalization (e.g. +971501234567)"),
+    role: zod.string().describe("Application role (e.g. user, provider)"),
+  })
+  .describe(
+    "Request body for POST \/api\/v1\/user\/create (new user). JSON property names match Spring (camelCase).\n",
+  );
+
+/**
+ * Keycloak "external" path via `createExternalAppUser`: user id is usually already known (Keycloak or another system); behavior if the id does not exist depends on Keycloak. Backend uses `permitAll()`. Proxied without requiring a Bearer token (optional if sent). Returns 201 + AppUserDto.
+
+ * @summary Create/sync external app user (Spring POST /api/v1/user/createExternal)
+ */
+export const CreateExternalAppUserBody = zod
+  .object({
+    id: zod.string().describe("Keycloak or external system user id"),
+    firstName: zod.string(),
+    lastName: zod.string(),
+    userName: zod.string(),
+    email: zod.string().email(),
+    mobileNumber: zod.string(),
+    role: zod.string(),
+  })
+  .describe(
+    "Request body for POST \/api\/v1\/user\/createExternal — sync\/profile when external user id is known.\n",
+  );
+
+/**
+ * Admin-only endpoint: `POST /api/v1/technicians/admin/{userId}`. Promotes target user to provider when needed, then creates technician profile.
+
+ * @summary Register technician profile by admin for an existing user
+ */
+export const RegisterTechnicianByAdminParams = zod.object({
+  userId: zod.coerce.string(),
+});
+
+export const RegisterTechnicianByAdminBody = zod.object({
+  specialization: zod
+    .enum([
+      "CLEANER",
+      "LAUNDRY",
+      "ELECTRICIAN",
+      "PAINTER",
+      "PLUMBER",
+      "CARPENTER",
+      "HANDYMAN",
+      "MOVER",
+      "CHEF",
+      "HVAC",
+      "LOCKSMITH",
+    ])
+    .describe("Case-insensitive on server; send uppercase."),
+  bio: zod.string().optional(),
+});
+
+/**
  * @summary List all technicians
  */
 export const ListTechniciansResponseItem = zod
@@ -223,26 +290,54 @@ export const ListTechniciansResponseItem = zod
     firstName: zod.string(),
     lastName: zod.string(),
     email: zod.string(),
-    specialization: zod.string(),
+    specialization: zod
+      .enum([
+        "CLEANER",
+        "LAUNDRY",
+        "ELECTRICIAN",
+        "PAINTER",
+        "PLUMBER",
+        "CARPENTER",
+        "HANDYMAN",
+        "MOVER",
+        "CHEF",
+        "HVAC",
+        "LOCKSMITH",
+      ])
+      .describe("Case-insensitive on server; send uppercase."),
     verified: zod.boolean(),
     rating: zod.number().nullish(),
-    bio: zod.string().optional(),
+    bio: zod.string().nullish(),
     createdAt: zod.number(),
   })
   .describe("Hayyah v1 technician profile (hayyah.me\/api\/v1\/technicians)");
 export const ListTechniciansResponse = zod.array(ListTechniciansResponseItem);
 
 /**
- * @summary Create a new technician
+ * @summary Register technician profile for the authenticated user
  */
-export const CreateTechnicianBody = zod.object({
-  firstName: zod.string(),
-  lastName: zod.string(),
-  email: zod.string(),
-  specialization: zod.string(),
-  bio: zod.string().optional(),
-  phone: zod.string().optional(),
-});
+export const CreateTechnicianBody = zod
+  .object({
+    specialization: zod
+      .enum([
+        "CLEANER",
+        "LAUNDRY",
+        "ELECTRICIAN",
+        "PAINTER",
+        "PLUMBER",
+        "CARPENTER",
+        "HANDYMAN",
+        "MOVER",
+        "CHEF",
+        "HVAC",
+        "LOCKSMITH",
+      ])
+      .describe("Case-insensitive on server; send uppercase."),
+    bio: zod.string().optional(),
+  })
+  .describe(
+    "User id comes from JWT (sub), not the body. Caller must be provider or admin.\n",
+  );
 
 /**
  * @summary List all services

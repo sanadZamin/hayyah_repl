@@ -7,11 +7,7 @@
  */
 import type { TechnicianSpecialization } from "./technicianSpecialization";
 
-/**
- * User id comes from JWT (sub), not the body. Caller must be provider or admin.
-
- */
-export interface CreateTechnician {
+export interface RegisterTechnicianByAdmin {
   specialization: TechnicianSpecialization;
   bio?: string;
 }
