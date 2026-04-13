@@ -5,6 +5,12 @@ import { useTechnicians } from "@/hooks/use-technicians";
 import { OnboardTechnicianDialog } from "@/components/onboard-technician-dialog";
 import { Button } from "@/components/ui/button";
 import { specializationLabel } from "@/components/specialization-select";
+import { SpecializationSelect } from "@/components/specialization-select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { apiFetch } from "@/lib/api-fetch";
 import {
   Plus,
   MapPin,
@@ -20,10 +26,13 @@ import {
   CalendarDays,
   ShieldCheck,
   ChevronRight,
+  RefreshCcw,
+  Loader2,
 } from "lucide-react";
 
 interface Provider {
   id: string;
+  userId?: string;
   name: string;
   initials: string;
   specialty: string;
@@ -33,6 +42,7 @@ interface Provider {
   city: string;
   status: string;
   skills: string[];
+  bio?: string;
 }
 
 const MOCK_PROVIDERS: Provider[] = [
@@ -59,7 +69,8 @@ const AVAILABILITY_FILTERS = [
 ] as const;
 
 export default function Providers() {
-  const { data: techData } = useTechnicians();
+  const { data: techData, refetch: refetchTechnicians, isFetching } = useTechnicians();
+  const { toast } = useToast();
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -69,6 +80,11 @@ export default function Providers() {
   const [selectedAvailability, setSelectedAvailability] = useState<Set<string>>(
     () => new Set(),
   );
+  const [editOpen, setEditOpen] = useState(false);
+  const [editSpecialization, setEditSpecialization] = useState("");
+  const [editBio, setEditBio] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const providers: Provider[] =
     techData && techData.length > 0
@@ -77,6 +93,7 @@ export default function Providers() {
           const specialty = t.specialization;
           return {
             id: String(t.id),
+            userId: t.userId,
             name,
             initials: name
               .split(" ")
@@ -91,6 +108,7 @@ export default function Providers() {
             city: "—",
             status: t.verified ? "Available" : "Off",
             skills: [specialty],
+            bio: t.bio ?? "",
           };
         })
       : MOCK_PROVIDERS;
@@ -132,6 +150,66 @@ export default function Providers() {
   }, [filtered, selectedId]);
 
   const selectedProvider = filtered.find((p) => p.id === selectedId);
+
+  const openEdit = () => {
+    if (!selectedProvider) return;
+    setEditSpecialization(selectedProvider.specialty);
+    setEditBio(selectedProvider.bio ?? "");
+    setEditOpen(true);
+  };
+
+  const submitEdit = async () => {
+    if (!selectedProvider) return;
+    if (!editSpecialization) {
+      toast({ title: "Select a specialization", variant: "destructive" });
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const res = await apiFetch(`/api/v1/technicians/${selectedProvider.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          specialization: editSpecialization,
+          bio: editBio.trim() || undefined,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as { error_description?: string; message?: string }).error_description || (err as { message?: string }).message || `Failed (${res.status})`);
+      }
+      await refetchTechnicians();
+      setEditOpen(false);
+      toast({ title: "Provider updated" });
+    } catch (e) {
+      toast({ title: e instanceof Error ? e.message : "Could not update provider", variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const deleteProvider = async () => {
+    if (!selectedProvider) return;
+    const ok = window.confirm(`Delete provider ${selectedProvider.name}?`);
+    if (!ok) return;
+    setIsDeleting(true);
+    try {
+      const res = await apiFetch(`/api/v1/technicians/${selectedProvider.id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as { error_description?: string; message?: string }).error_description || (err as { message?: string }).message || `Failed (${res.status})`);
+      }
+      await refetchTechnicians();
+      setSelectedId(null);
+      toast({ title: "Provider deleted" });
+    } catch (e) {
+      toast({ title: e instanceof Error ? e.message : "Could not delete provider", variant: "destructive" });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const resetFilters = () => {
     setSelectedSpecializations(new Set());
@@ -243,18 +321,32 @@ export default function Providers() {
               <h1 className="text-2xl font-bold" style={{ color: "var(--hayyah-navy)" }}>Service Providers</h1>
               <p className="text-gray-500 text-sm mt-1">Manage and track your service fleet</p>
             </div>
-            <OnboardTechnicianDialog
-              title="Add provider"
-              description="Same as technicians: POST /api/v1/user/create or createExternal, then POST /api/v1/technicians/admin/{userId} (admin). See SpringDoc /v3/api-docs for AppUserDto."
-            >
-              <button
+            <div className="flex items-center gap-2">
+              <Button
                 type="button"
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white shadow-sm hover:opacity-95 transition-opacity"
-                style={{ background: "var(--hayyah-blue)" }}
+                variant="outline"
+                className="rounded-xl border-gray-200"
+                onClick={() => {
+                  void refetchTechnicians();
+                }}
+                disabled={isFetching}
               >
-                <Plus className="w-4 h-4" /> Add Provider
-              </button>
-            </OnboardTechnicianDialog>
+                <RefreshCcw className={`w-4 h-4 mr-2 ${isFetching ? "animate-spin" : ""}`} />
+                Refresh
+              </Button>
+              <OnboardTechnicianDialog
+                title="Add provider"
+                description="Same as technicians: POST /api/v1/user/create or createExternal, then POST /api/v1/technicians/admin/{userId} (admin). See SpringDoc /v3/api-docs for AppUserDto."
+              >
+                <button
+                  type="button"
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white shadow-sm hover:opacity-95 transition-opacity"
+                  style={{ background: "var(--hayyah-blue)" }}
+                >
+                  <Plus className="w-4 h-4" /> Add Provider
+                </button>
+              </OnboardTechnicianDialog>
+            </div>
           </div>
 
           {/* Stats */}
@@ -487,12 +579,63 @@ export default function Providers() {
             </div>
 
             <div className="p-4 border-t border-gray-100 flex gap-3 rounded-b-2xl shadow-sm">
-              <button className="flex-1 py-2 rounded-xl border text-sm font-medium bg-white" style={{ borderColor: "#e2e8f0" }}>Message</button>
-              <button className="flex-1 py-2 rounded-xl text-sm font-semibold text-white shadow-sm" style={{ background: "var(--hayyah-blue)" }}>Assign Job</button>
+              <button
+                className="flex-1 py-2 rounded-xl border text-sm font-medium bg-white"
+                style={{ borderColor: "#e2e8f0" }}
+                onClick={openEdit}
+                disabled={isSaving || isDeleting}
+              >
+                Edit
+              </button>
+              <button
+                className="flex-1 py-2 rounded-xl text-sm font-semibold text-white shadow-sm disabled:opacity-60"
+                style={{ background: "#dc2626" }}
+                onClick={deleteProvider}
+                disabled={isSaving || isDeleting}
+              >
+                {isDeleting ? "Deleting..." : "Delete"}
+              </button>
             </div>
           </div>
         )}
       </div>
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>Edit provider</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-provider-specialization">Specialization</Label>
+              <SpecializationSelect
+                id="edit-provider-specialization"
+                value={editSpecialization}
+                onValueChange={setEditSpecialization}
+                disabled={isSaving}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-provider-bio">Bio (optional)</Label>
+              <Textarea
+                id="edit-provider-bio"
+                rows={3}
+                value={editBio}
+                onChange={(e) => setEditBio(e.target.value)}
+                disabled={isSaving}
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setEditOpen(false)} disabled={isSaving}>
+                Cancel
+              </Button>
+              <Button onClick={submitEdit} disabled={isSaving}>
+                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Save
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }

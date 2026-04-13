@@ -83,6 +83,45 @@ function hayyahGet(url: string, token: string): Promise<{ status: number; data: 
   });
 }
 
+function hayyahRequest(
+  method: "PUT" | "DELETE",
+  url: string,
+  token: string,
+  body?: unknown,
+): Promise<{ status: number; data: string }> {
+  return new Promise((resolve, reject) => {
+    const parsed = new URL(url);
+    const req = httpsRequest(
+      {
+        hostname: parsed.hostname,
+        path: parsed.pathname + parsed.search,
+        method,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Origin: "https://hayyah.me",
+          Referer: "https://hayyah.me/",
+        },
+      },
+      (remoteRes) => {
+        let data = "";
+        remoteRes.on("data", (chunk) => {
+          data += chunk;
+        });
+        remoteRes.on("end", () =>
+          resolve({ status: remoteRes.statusCode ?? 502, data }),
+        );
+      },
+    );
+    req.on("error", reject);
+    if (body !== undefined && method !== "DELETE") {
+      req.write(JSON.stringify(body));
+    }
+    req.end();
+  });
+}
+
 router.get("/v1/technicians", async (req, res) => {
   const auth = req.headers.authorization;
   if (!auth || !auth.startsWith("Bearer ")) {
@@ -151,6 +190,64 @@ router.post("/v1/technicians", async (req, res) => {
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: "Failed to create technician" });
+  }
+});
+
+router.put("/v1/technicians/:id", async (req, res) => {
+  const auth = req.headers.authorization;
+  if (!auth || !auth.startsWith("Bearer ")) {
+    res.status(401).json({ error: "unauthorized" });
+    return;
+  }
+  const token = auth.slice(7);
+  const id = encodeURIComponent(req.params.id);
+  const url = `${REMOTE_TECHNICIANS_URL}/${id}`;
+  try {
+    const { status, data } = await hayyahRequest("PUT", url, token, req.body);
+    console.log(`[technicians] PUT ${url} → ${status}${status >= 400 ? ` | ${data.slice(0, 200)}` : ""}`);
+    if (!data || data.trim() === "") {
+      res.status(status).end();
+      return;
+    }
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(data);
+    } catch {
+      parsed = { raw: data };
+    }
+    res.status(status).json(parsed);
+  } catch (e) {
+    console.error(e);
+    res.status(502).json({ error: "proxy_error", error_description: "Could not update technician." });
+  }
+});
+
+router.delete("/v1/technicians/:id", async (req, res) => {
+  const auth = req.headers.authorization;
+  if (!auth || !auth.startsWith("Bearer ")) {
+    res.status(401).json({ error: "unauthorized" });
+    return;
+  }
+  const token = auth.slice(7);
+  const id = encodeURIComponent(req.params.id);
+  const url = `${REMOTE_TECHNICIANS_URL}/${id}`;
+  try {
+    const { status, data } = await hayyahRequest("DELETE", url, token);
+    console.log(`[technicians] DELETE ${url} → ${status}${status >= 400 ? ` | ${data.slice(0, 200)}` : ""}`);
+    if (!data || data.trim() === "") {
+      res.status(status).end();
+      return;
+    }
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(data);
+    } catch {
+      parsed = { raw: data };
+    }
+    res.status(status).json(parsed);
+  } catch (e) {
+    console.error(e);
+    res.status(502).json({ error: "proxy_error", error_description: "Could not delete technician." });
   }
 });
 
