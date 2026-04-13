@@ -39,6 +39,12 @@ function usesOidcTokenEndpoint(url: string): boolean {
   return url.includes("/protocol/openid-connect/token");
 }
 
+function appendClientSecretIfPresent(params: URLSearchParams, clientSecret: string): void {
+  if (clientSecret.trim()) {
+    params.set("client_secret", clientSecret);
+  }
+}
+
 export function getTokenData(): StoredTokenData | null {
   try {
     const stored = localStorage.getItem(TOKEN_KEY);
@@ -82,12 +88,15 @@ async function performRefresh(): Promise<string | null> {
         ? {
             method: "POST",
             headers: { "Content-Type": "application/x-www-form-urlencoded" },
-            body: new URLSearchParams({
-              client_id: CLIENT_ID,
-              grant_type: "refresh_token",
-              refresh_token: tokenData.refresh_token,
-              client_secret: clientSecret,
-            }).toString(),
+            body: (() => {
+              const params = new URLSearchParams({
+                client_id: CLIENT_ID,
+                grant_type: "refresh_token",
+                refresh_token: tokenData.refresh_token,
+              });
+              appendClientSecretIfPresent(params, clientSecret);
+              return params.toString();
+            })(),
           }
         : {
             method: "POST",
@@ -95,7 +104,7 @@ async function performRefresh(): Promise<string | null> {
             body: JSON.stringify({
               refresh_token: tokenData.refresh_token,
               client_id: CLIENT_ID,
-              client_secret: clientSecret,
+              ...(clientSecret.trim() ? { client_secret: clientSecret } : {}),
             }),
           },
     );

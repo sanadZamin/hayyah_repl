@@ -96,8 +96,10 @@ export function useAuth() {
       grant_type: "password",
       username,
       password,
-      client_secret: CLIENT_SECRET,
     });
+    if (CLIENT_SECRET.trim()) {
+      body.set("client_secret", CLIENT_SECRET);
+    }
 
     try {
       const res = await fetch(TOKEN_URL, {
