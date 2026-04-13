@@ -19,6 +19,10 @@ services:
       dockerfile: Dockerfile.web
       args:
         VITE_CLIENT_SECRET: ${VITE_CLIENT_SECRET}
+        VITE_AUTH_TOKEN_URL: ${VITE_AUTH_TOKEN_URL}
+        VITE_AUTH_BASE_URL: ${VITE_AUTH_BASE_URL}
+        VITE_AUTH_REFRESH_URL: ${VITE_AUTH_REFRESH_URL}
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL}
     ports:
       - "80:80"
     environment:
