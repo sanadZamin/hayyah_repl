@@ -5,6 +5,7 @@ import { useDashboardMetrics } from "@/hooks/use-dashboard";
 import { useQueryClient } from "@tanstack/react-query";
 import { Search, Eye, Edit2, Download, Calendar, X, Wrench, MapPin, User, Clock, CheckCircle2, Loader2, AlertCircle, ChevronUp, ChevronDown, ChevronsUpDown, Trash2, Plus, RefreshCcw } from "lucide-react";
 import { NewOrderDialog } from "@/components/new-order-dialog";
+import { dashboardStatsApiPath } from "@/hooks/use-dashboard";
 import { format } from "date-fns";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -80,7 +81,7 @@ export default function Orders() {
   const refreshOrdersData = useCallback(async () => {
     const jobs = [
       queryClient.refetchQueries({ queryKey: ["tasks"] }),
-      queryClient.refetchQueries({ queryKey: ["/api/dashboard/metrics"] }),
+      queryClient.refetchQueries({ queryKey: [dashboardStatsApiPath] }),
     ];
     if (selectedId) {
       jobs.push(queryClient.refetchQueries({ queryKey: ["task-events", selectedId] }));

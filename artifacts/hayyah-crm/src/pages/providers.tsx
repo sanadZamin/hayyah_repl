@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiFetch } from "@/lib/api-fetch";
+import { apiPath } from "@/lib/api-path";
 import {
   Plus,
   MapPin,
@@ -166,7 +167,7 @@ export default function Providers() {
     }
     setIsSaving(true);
     try {
-      const res = await apiFetch(`/api/v1/technicians/${selectedProvider.id}`, {
+      const res = await apiFetch(apiPath(`/technicians/${selectedProvider.id}`), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -194,7 +195,7 @@ export default function Providers() {
     if (!ok) return;
     setIsDeleting(true);
     try {
-      const res = await apiFetch(`/api/v1/technicians/${selectedProvider.id}`, {
+      const res = await apiFetch(apiPath(`/technicians/${selectedProvider.id}`), {
         method: "DELETE",
       });
       if (!res.ok) {

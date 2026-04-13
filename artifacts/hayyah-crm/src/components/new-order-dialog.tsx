@@ -3,6 +3,7 @@ import { X, ChevronDown, Calendar, MapPin, Wrench, FileText, CheckCircle2, Loade
 import { useAuth } from "@/hooks/use-auth";
 import { useUsers, getPhone, type HayyahUser } from "@/hooks/use-users";
 import { apiFetch } from "@/lib/api-fetch";
+import { apiPath } from "@/lib/api-path";
 
 function getDisplayName(u: HayyahUser): string {
   const full = `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim();
@@ -289,7 +290,7 @@ export function NewOrderDialog({ open, onClose }: NewOrderDialogProps) {
     setSubmitError(null);
     try {
       const payload = buildPayload();
-      const res = await apiFetch("/api/v1/tasks", {
+      const res = await apiFetch(apiPath("/tasks"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

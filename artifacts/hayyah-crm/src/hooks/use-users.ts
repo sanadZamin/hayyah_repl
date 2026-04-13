@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-fetch";
+import { apiPath } from "@/lib/api-path";
 
 export interface HayyahUser {
   id: string;
@@ -62,7 +63,7 @@ export function getPhone(u: HayyahUser): string {
 }
 
 async function fetchUsers(page = 0, size = 50): Promise<HayyahUser[]> {
-  const res = await apiFetch(`/api/v1/users?page=${page}&size=${size}`);
+  const res = await apiFetch(apiPath(`/user?page=${page}&size=${size}`));
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error((err as Record<string, string>).error_description || `Failed to fetch users (${res.status})`);

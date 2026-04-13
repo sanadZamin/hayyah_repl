@@ -25,7 +25,7 @@ export async function apiFetch(input: RequestInfo, init: RequestInit = {}): Prom
       headers: {
         Accept: "application/json",
         ...(init.headers ?? {}),
-        Authorization: token ? `Bearer ${token}` : "",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
     });
 

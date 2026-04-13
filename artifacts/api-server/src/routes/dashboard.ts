@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request, type Response } from "express";
 import { request as httpsRequest } from "node:https";
 
 const router: IRouter = Router();
@@ -31,7 +31,7 @@ function hayyahGet(url: string, token: string): Promise<{ status: number; data: 
   });
 }
 
-router.get("/dashboard/metrics", async (req, res) => {
+async function proxyHayyahStats(req: Request, res: Response): Promise<void> {
   const auth = req.headers.authorization;
   if (!auth || !auth.startsWith("Bearer ")) {
     res.status(401).json({ error: "unauthorized" });
@@ -49,6 +49,11 @@ router.get("/dashboard/metrics", async (req, res) => {
     console.error("[dashboard] error:", err);
     res.status(502).json({ error: "proxy_error", error_description: "Could not reach stats API." });
   }
-});
+}
+
+/** Legacy CRM path; same upstream as `/stats`. */
+router.get("/dashboard/metrics", proxyHayyahStats);
+/** Matches Hayyah `GET /api/v1/stats` when using `VITE_API_PATH_PREFIX=` locally. */
+router.get("/stats", proxyHayyahStats);
 
 export default router;

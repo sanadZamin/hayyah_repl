@@ -42,14 +42,18 @@ const apiProxy = (apiTarget: string, authTarget: string): Record<string, ProxyOp
 
 export default defineConfig(async ({ mode }) => {
   const env = loadEnv(mode, workspaceRoot);
+  // Default to deployed API so dev works without a local backend on :8080 (avoids proxy → localhost:8080 → 404 on /api/v1/*).
   const apiProxyTarget =
     env.VITE_API_PROXY_TARGET ??
     process.env.VITE_API_PROXY_TARGET ??
-    "http://localhost:8080";
+    "https://hayyah.me";
   const authProxyTarget =
     env.VITE_AUTH_PROXY_TARGET ??
     process.env.VITE_AUTH_PROXY_TARGET ??
     apiProxyTarget;
+
+  // One-line sanity check when debugging “all APIs 404” locally.
+  console.info(`[vite] proxy /api → ${apiProxyTarget}  |  /auth → ${authProxyTarget}`);
 
   return {
     base: "/frontend/",

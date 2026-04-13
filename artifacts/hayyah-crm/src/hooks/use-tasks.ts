@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-fetch";
+import { apiPath } from "@/lib/api-path";
 
 export interface Task {
   id: string;
@@ -39,7 +40,7 @@ export interface PaginatedTasksResponse {
 }
 
 async function fetchTasks(page: number, size: number): Promise<PaginatedTasksResponse> {
-  const res = await apiFetch(`/api/v1/tasks?page=${page}&size=${size}`);
+  const res = await apiFetch(apiPath(`/tasks?page=${page}&size=${size}`));
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error((err as Record<string, string>).error_description || `Failed to fetch tasks (${res.status})`);
@@ -68,7 +69,7 @@ async function fetchTasks(page: number, size: number): Promise<PaginatedTasksRes
 }
 
 async function fetchTaskEvents(taskId: string): Promise<TaskEvent[]> {
-  const res = await apiFetch(`/api/v1/tasks/${taskId}/events`);
+  const res = await apiFetch(apiPath(`/tasks/${taskId}/events`));
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error((err as Record<string, string>).error_description || `Failed to fetch task events (${res.status})`);
@@ -102,7 +103,7 @@ export function useDeleteTasks() {
 
   const deleteTasks = async (ids: string[]): Promise<{ deleted: string[]; failed: string[] }> => {
     const results = await Promise.allSettled(
-      ids.map(id => apiFetch(`/api/v1/tasks/${id}`, { method: "DELETE" }))
+      ids.map(id => apiFetch(apiPath(`/tasks/${id}`), { method: "DELETE" }))
     );
 
     const deleted: string[] = [];

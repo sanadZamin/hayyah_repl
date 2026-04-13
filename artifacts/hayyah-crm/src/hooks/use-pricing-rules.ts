@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-fetch";
+import { apiPath } from "@/lib/api-path";
 
 export interface PricingRule {
   id?: string;
@@ -26,7 +27,7 @@ async function parseError(res: Response): Promise<string> {
 }
 
 async function fetchPricingRules(): Promise<PricingRule[]> {
-  const res = await apiFetch("/api/v1/pricing/rules");
+  const res = await apiFetch(apiPath("/pricing/rules"));
   if (!res.ok) throw new Error(await parseError(res));
   const data = await res.json();
   return Array.isArray(data) ? data : (data.content ?? data.data ?? []);
@@ -47,7 +48,7 @@ export function usePricingRuleMutations() {
 
   const createRule = useMutation({
     mutationFn: async (body: Omit<PricingRule, "id">) => {
-      const res = await apiFetch("/api/v1/pricing/rules", {
+      const res = await apiFetch(apiPath("/pricing/rules"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -60,7 +61,7 @@ export function usePricingRuleMutations() {
 
   const updateRule = useMutation({
     mutationFn: async ({ id, body }: { id: string; body: Partial<PricingRule> }) => {
-      const res = await apiFetch(`/api/v1/pricing/rules/${encodeURIComponent(id)}`, {
+      const res = await apiFetch(apiPath(`/pricing/rules/${encodeURIComponent(id)}`), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -73,7 +74,7 @@ export function usePricingRuleMutations() {
 
   const deactivateRule = useMutation({
     mutationFn: async (id: string) => {
-      const res = await apiFetch(`/api/v1/pricing/rules/${encodeURIComponent(id)}`, {
+      const res = await apiFetch(apiPath(`/pricing/rules/${encodeURIComponent(id)}`), {
         method: "DELETE",
       });
       if (!res.ok && res.status !== 204) throw new Error(await parseError(res));
