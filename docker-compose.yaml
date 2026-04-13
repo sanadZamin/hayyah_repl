@@ -21,5 +21,5 @@ services:
         VITE_CLIENT_SECRET: ${VITE_CLIENT_SECRET}
     ports:
       - "80:80"
-    depends_on:
-      - api
+    environment:
+      API_UPSTREAM: ${API_UPSTREAM:-https://hayyah.me}
