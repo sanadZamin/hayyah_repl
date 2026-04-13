@@ -137,6 +137,45 @@ router.post("/v1/user/createExternal", async (req, res) => {
   }
 });
 
+async function proxyDeleteUser(req: Request, res: Response) {
+  const auth = req.headers.authorization;
+  if (!auth || !auth.startsWith("Bearer ")) {
+    res.status(401).json({ error: "unauthorized" });
+    return;
+  }
+  const token = auth.slice(7);
+  const rawId = req.params.userId;
+  const userId = (Array.isArray(rawId) ? rawId[0] : rawId) ?? "";
+  if (!userId) {
+    res.status(400).json({ error: "bad_request", error_description: "Missing user id." });
+    return;
+  }
+  const url = `${USERS_BASE}/${encodeURIComponent(userId)}`;
+
+  try {
+    const { status, data } = await hayyahRequest("DELETE", url, undefined, token);
+    console.log(`[users] DELETE ${url} → ${status}${status >= 400 ? ` | ${data.slice(0, 200)}` : ""}`);
+    if (!data || data.trim() === "") {
+      res.status(status).end();
+      return;
+    }
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(data);
+    } catch {
+      parsed = { raw: data };
+    }
+    res.status(status).json(parsed);
+  } catch (err) {
+    console.error("[users] DELETE user error:", err);
+    res.status(502).json({ error: "proxy_error", error_description: "Could not reach users API." });
+  }
+}
+
+router.delete("/v1/user/:userId", proxyDeleteUser);
+/** Same as `/v1/user/:id` when CRM uses empty `VITE_API_PATH_PREFIX` (local api-server). */
+router.delete("/user/:userId", proxyDeleteUser);
+
 router.post("/v1/technicians/admin/:userId", async (req, res) => {
   const auth = req.headers.authorization;
   if (!auth || !auth.startsWith("Bearer ")) {

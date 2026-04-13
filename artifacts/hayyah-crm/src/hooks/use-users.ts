@@ -1,6 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-fetch";
 import { apiPath } from "@/lib/api-path";
+import { useToast } from "@/hooks/use-toast";
 
 export interface HayyahUser {
   id: string;
@@ -82,5 +83,30 @@ export function useUsers(page = 0, size = 50) {
     queryFn: () => fetchUsers(page, size),
     staleTime: 30_000,
     retry: 1,
+  });
+}
+
+export function useDeleteUser() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async (userId: string) => {
+      const res = await apiFetch(apiPath(`/user/${encodeURIComponent(userId)}`), { method: "DELETE" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        const o = err as Record<string, string>;
+        throw new Error(
+          o.error_description || o.message || o.error || `Failed to delete user (${res.status})`,
+        );
+      }
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["users"] });
+      toast({ title: "Customer deleted" });
+    },
+    onError: (e: Error) => {
+      toast({ title: e.message || "Could not delete customer", variant: "destructive" });
+    },
   });
 }

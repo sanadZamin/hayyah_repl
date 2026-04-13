@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { AppLayout } from "@/components/app-layout";
-import { useUsers, getPhone, getUsername, type HayyahUser } from "@/hooks/use-users";
-import { Search, Plus, MoreVertical, Filter, ChevronLeft, ChevronRight, Phone, Mail, MapPin, Star, Clock, CheckCircle2, X, Loader2, AlertCircle, ChevronUp, ChevronDown, ChevronsUpDown, User } from "lucide-react";
+import { useUsers, useDeleteUser, getPhone, getUsername, type HayyahUser } from "@/hooks/use-users";
+import { Search, Plus, MoreVertical, Filter, ChevronLeft, ChevronRight, Phone, Mail, Clock, CheckCircle2, X, Loader2, AlertCircle, ChevronUp, ChevronDown, ChevronsUpDown, User, Trash2 } from "lucide-react";
 
 function getFullName(u: HayyahUser): string {
   if (u.firstName || u.lastName) return `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim();
@@ -34,11 +34,15 @@ function SortIcon({ col, sortCol, sortDir }: { col: SortCol; sortCol: SortCol | 
 
 export default function Customers() {
   const { data: users, isLoading, isError, error, refetch } = useUsers(0, 100);
+  const deleteUser = useDeleteUser();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [sortCol, setSortCol] = useState<SortCol | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+
+  const isDeletingUser = deleteUser.isPending;
 
   function handleSort(col: SortCol) {
     if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc");
@@ -69,6 +73,16 @@ export default function Customers() {
   }, [users, search, statusFilter, sortCol, sortDir]);
 
   const selectedUser = filtered.find(u => u.id === selectedId);
+
+  function handleConfirmDeleteUser() {
+    if (!selectedUser?.id) return;
+    deleteUser.mutate(selectedUser.id, {
+      onSuccess: () => {
+        setShowDeleteConfirm(false);
+        setSelectedId(null);
+      },
+    });
+  }
 
   return (
     <AppLayout activeNav="customers">
@@ -236,7 +250,43 @@ export default function Customers() {
 
         {/* Side panel */}
         {selectedId && selectedUser && (
-          <div className="fixed inset-y-0 right-0 w-[360px] bg-white shadow-2xl border-l border-gray-100 z-50 flex flex-col lg:absolute lg:right-0 lg:top-0 lg:bottom-0 lg:rounded-2xl lg:h-auto lg:border lg:shadow-md">
+          <div className="fixed inset-y-0 right-0 w-[360px] bg-white shadow-2xl border-l border-gray-100 z-50 flex flex-col relative lg:absolute lg:right-0 lg:top-0 lg:bottom-0 lg:rounded-2xl lg:h-auto lg:border lg:shadow-md">
+            {showDeleteConfirm && (
+              <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/30 rounded-2xl">
+                <div className="bg-white rounded-2xl shadow-xl p-6 w-[min(100%,20rem)] mx-4">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "#fef2f2" }}>
+                      <Trash2 className="w-5 h-5 text-red-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-gray-900">Delete this customer?</h3>
+                      <p className="text-xs text-gray-500 mt-0.5">This removes the user from the system. This action cannot be undone.</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-3 mt-5">
+                    <button
+                      type="button"
+                      onClick={() => setShowDeleteConfirm(false)}
+                      disabled={isDeletingUser}
+                      className="flex-1 py-2 rounded-xl border text-sm font-medium text-gray-700 bg-white disabled:opacity-50"
+                      style={{ borderColor: "#e2e8f0" }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleConfirmDeleteUser}
+                      disabled={isDeletingUser || !selectedUser.id}
+                      className="flex-1 py-2 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2 disabled:opacity-70"
+                      style={{ background: "#dc2626" }}
+                    >
+                      {isDeletingUser ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                      {isDeletingUser ? "Deleting…" : "Delete"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
             <div className="p-6 flex items-start justify-between border-b border-gray-100">
               <div className="flex items-center gap-4">
                 <div className="h-14 w-14 rounded-full flex items-center justify-center text-white text-lg font-bold shadow-sm ring-2 ring-[var(--hayyah-blue-light)]" style={{ background: "var(--hayyah-navy)" }}>
@@ -247,7 +297,14 @@ export default function Customers() {
                   <div className="mt-1"><StatusBadge status={getStatus(selectedUser)} /></div>
                 </div>
               </div>
-              <button className="text-gray-400 hover:text-gray-600 p-1 rounded-lg" onClick={() => setSelectedId(null)}>
+              <button
+                type="button"
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg"
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setSelectedId(null);
+                }}
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -315,9 +372,20 @@ export default function Customers() {
               </div>
             </div>
 
-            <div className="p-4 border-t border-gray-100 bg-gray-50 flex gap-3">
-              <button className="flex-1 px-4 py-2 rounded-xl border text-sm font-medium bg-white" style={{ borderColor: "#e2e8f0", color: "#374151" }}>Message</button>
-              <button className="flex-1 px-4 py-2 rounded-xl text-sm font-semibold text-white shadow-sm" style={{ background: "var(--hayyah-blue)" }}>Create Order</button>
+            <div className="p-4 border-t border-gray-100 bg-gray-50 space-y-3">
+              <div className="flex gap-3">
+                <button type="button" className="flex-1 px-4 py-2 rounded-xl border text-sm font-medium bg-white" style={{ borderColor: "#e2e8f0", color: "#374151" }}>Message</button>
+                <button type="button" className="flex-1 px-4 py-2 rounded-xl text-sm font-semibold text-white shadow-sm" style={{ background: "var(--hayyah-blue)" }}>Create Order</button>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(true)}
+                disabled={!selectedUser.id || isDeletingUser}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl border text-sm font-medium text-red-600 bg-white border-red-200 hover:bg-red-50 disabled:opacity-50"
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete customer
+              </button>
             </div>
           </div>
         )}
