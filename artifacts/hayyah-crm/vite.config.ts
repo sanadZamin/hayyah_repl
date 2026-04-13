@@ -6,16 +6,18 @@ import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
 const rawPort = process.env.PORT ?? "3000";
 const port = Number(rawPort);
+const workspaceRoot = path.resolve(import.meta.dirname, "..", "..");
 
 if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-const apiProxy = (target: string): Record<string, ProxyOptions> => {
+const apiProxy = (apiTarget: string, authTarget: string): Record<string, ProxyOptions> => {
   const configure: ProxyOptions["configure"] = (proxy) => {
     proxy.on("proxyRes", (proxyRes, req) => {
       const code = proxyRes.statusCode ?? 0;
       if (code >= 400) {
+        const target = (req.url ?? "").startsWith("/auth") ? authTarget : apiTarget;
         console.warn(
           `[vite proxy] ${req.method} ${req.url} → HTTP ${code} (target: ${target})`,
         );
@@ -27,22 +29,27 @@ const apiProxy = (target: string): Record<string, ProxyOptions> => {
   };
 
   return {
-    "/api": { target, changeOrigin: true, configure },
+    "/api": { target: apiTarget, changeOrigin: true, configure },
     "/frontend/api": {
-      target,
+      target: apiTarget,
       rewrite: (p: string) => p.replace(/^\/frontend\/api/, "/api"),
       changeOrigin: true,
       configure,
     },
+    "/auth": { target: authTarget, changeOrigin: true, configure },
   };
 };
 
 export default defineConfig(async ({ mode }) => {
-  const env = loadEnv(mode, import.meta.dirname);
+  const env = loadEnv(mode, workspaceRoot);
   const apiProxyTarget =
     env.VITE_API_PROXY_TARGET ??
     process.env.VITE_API_PROXY_TARGET ??
     "http://localhost:8080";
+  const authProxyTarget =
+    env.VITE_AUTH_PROXY_TARGET ??
+    process.env.VITE_AUTH_PROXY_TARGET ??
+    apiProxyTarget;
 
   return {
     base: "/frontend/",
@@ -77,6 +84,7 @@ export default defineConfig(async ({ mode }) => {
       dedupe: ["react", "react-dom"],
     },
     root: path.resolve(import.meta.dirname),
+    envDir: workspaceRoot,
     build: {
       outDir: path.resolve(import.meta.dirname, "dist/public"),
       emptyOutDir: true,
@@ -89,13 +97,13 @@ export default defineConfig(async ({ mode }) => {
         strict: true,
         deny: ["**/.*"],
       },
-      proxy: apiProxy(apiProxyTarget),
+      proxy: apiProxy(apiProxyTarget, authProxyTarget),
     },
     preview: {
       port,
       host: "0.0.0.0",
       allowedHosts: true,
-      proxy: apiProxy(apiProxyTarget),
+      proxy: apiProxy(apiProxyTarget, authProxyTarget),
     },
   };
 });

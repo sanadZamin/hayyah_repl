@@ -4,6 +4,7 @@ export const TOKEN_KEY = "hayyah_token";
 export const AUTH_KEY = "hayyah_auth";
 
 const CLIENT_ID = "web_client";
+const KEYCLOAK_TOKEN_PATH = "/auth/realms/hayyah/protocol/openid-connect/token";
 
 export interface StoredTokenData {
   access_token: string;
@@ -16,6 +17,26 @@ function apiPath(path: string): string {
   const origin = normalizeViteApiBaseUrl(import.meta.env.VITE_API_BASE_URL);
   if (origin) return `${origin}/api${p}`;
   return `/api${p}`;
+}
+
+function resolveKeycloakTokenUrl(): string {
+  const explicitUrl = import.meta.env.VITE_AUTH_TOKEN_URL?.trim();
+  if (explicitUrl) return explicitUrl;
+
+  const authOrigin = normalizeViteApiBaseUrl(import.meta.env.VITE_AUTH_BASE_URL);
+  if (authOrigin) return `${authOrigin}${KEYCLOAK_TOKEN_PATH}`;
+
+  return apiPath("/auth/token");
+}
+
+function resolveRefreshUrl(): string {
+  const explicitRefreshUrl = import.meta.env.VITE_AUTH_REFRESH_URL?.trim();
+  if (explicitRefreshUrl) return explicitRefreshUrl;
+  return resolveKeycloakTokenUrl();
+}
+
+function usesOidcTokenEndpoint(url: string): boolean {
+  return url.includes("/protocol/openid-connect/token");
 }
 
 export function getTokenData(): StoredTokenData | null {
@@ -52,17 +73,32 @@ async function performRefresh(): Promise<string | null> {
   }
 
   const clientSecret = import.meta.env.VITE_CLIENT_SECRET ?? "";
+  const refreshUrl = resolveRefreshUrl();
 
   try {
-    const res = await fetch(apiPath("/auth/refresh"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        refresh_token: tokenData.refresh_token,
-        client_id: CLIENT_ID,
-        client_secret: clientSecret,
-      }),
-    });
+    const res = await fetch(
+      refreshUrl,
+      usesOidcTokenEndpoint(refreshUrl)
+        ? {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({
+              client_id: CLIENT_ID,
+              grant_type: "refresh_token",
+              refresh_token: tokenData.refresh_token,
+              client_secret: clientSecret,
+            }).toString(),
+          }
+        : {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              refresh_token: tokenData.refresh_token,
+              client_id: CLIENT_ID,
+              client_secret: clientSecret,
+            }),
+          },
+    );
 
     if (!res.ok) {
       console.warn("[session-auth] Refresh failed:", res.status);
@@ -102,7 +138,8 @@ export function isAuthEndpointUrl(url: string): boolean {
     const path = url.includes("://") ? new URL(url).pathname : url.split("?")[0] ?? url;
     return (
       path.includes("/api/auth/token") ||
-      path.includes("/api/auth/refresh")
+      path.includes("/api/auth/refresh") ||
+      path.includes("/protocol/openid-connect/token")
     );
   } catch {
     return false;

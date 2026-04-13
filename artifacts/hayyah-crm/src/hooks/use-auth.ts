@@ -1,12 +1,24 @@
 import { useState, useEffect, useMemo } from "react";
 import { apiUrl } from "@/lib/api-url";
+import { normalizeViteApiBaseUrl } from "@workspace/api-client-react";
 
 const AUTH_KEY = "hayyah_auth";
 const TOKEN_KEY = "hayyah_token";
 
-const TOKEN_URL = apiUrl("/auth/token");
+const KEYCLOAK_TOKEN_PATH = "/auth/realms/hayyah/protocol/openid-connect/token";
+const TOKEN_URL = resolveTokenUrl();
 const CLIENT_ID = "web_client";
 const CLIENT_SECRET = import.meta.env.VITE_CLIENT_SECRET ?? "";
+
+function resolveTokenUrl(): string {
+  const explicitUrl = import.meta.env.VITE_AUTH_TOKEN_URL?.trim();
+  if (explicitUrl) return explicitUrl;
+
+  const authOrigin = normalizeViteApiBaseUrl(import.meta.env.VITE_AUTH_BASE_URL);
+  if (authOrigin) return `${authOrigin}${KEYCLOAK_TOKEN_PATH}`;
+
+  return apiUrl("/auth/token");
+}
 
 export interface AuthUser {
   email: string;
