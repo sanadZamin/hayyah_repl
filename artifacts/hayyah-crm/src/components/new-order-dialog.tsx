@@ -289,7 +289,7 @@ export function NewOrderDialog({ open, onClose }: NewOrderDialogProps) {
     setSubmitError(null);
     try {
       const payload = buildPayload();
-      const res = await apiFetch("/api/tasks", {
+      const res = await apiFetch("/api/v1/tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
