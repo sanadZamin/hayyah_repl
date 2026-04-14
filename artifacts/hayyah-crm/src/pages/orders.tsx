@@ -64,7 +64,8 @@ export default function Orders() {
   const { data: metrics } = useDashboardMetrics();
   const { deleteTasks } = useDeleteTasks();
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(() => new Set());
+  const [selectedServiceTypes, setSelectedServiceTypes] = useState<Set<string>>(() => new Set());
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [sortCol, setSortCol] = useState<SortCol | null>(null);
@@ -135,15 +136,34 @@ export default function Orders() {
       date: formatDate(t.taskDateTime),
       status: t.orderStatus ?? "NEW",
       amount: "—",
+      rawTask: t,
     }));
   }, [tasks]);
+
+  const serviceTypeOptions = useMemo(() => {
+    const uniq = new Set<string>();
+    for (const o of orders) {
+      const v = (o.taskType ?? "").trim();
+      if (v) uniq.add(v);
+    }
+    return Array.from(uniq).sort((a, b) => a.localeCompare(b));
+  }, [orders]);
+
+  const statusOptions = useMemo(() => {
+    const uniq = new Set<string>();
+    for (const o of orders) {
+      if (o.status) uniq.add(o.status);
+    }
+    return Array.from(uniq).sort((a, b) => a.localeCompare(b));
+  }, [orders]);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
     const rows = orders.filter(o => {
       const matchSearch = !q || o.customer.toLowerCase().includes(q) || o.service.toLowerCase().includes(q) || o.id.toLowerCase().includes(q);
-      const matchStatus = statusFilter === "all" || o.status === statusFilter;
-      return matchSearch && matchStatus;
+      const matchStatus = selectedStatuses.size === 0 || selectedStatuses.has(o.status);
+      const matchServiceType = selectedServiceTypes.size === 0 || selectedServiceTypes.has(o.taskType);
+      return matchSearch && matchStatus && matchServiceType;
     });
     if (!sortCol) return rows;
     return [...rows].sort((a, b) => {
@@ -156,7 +176,7 @@ export default function Orders() {
       if (sortCol === "status")   { av = a.status;                        bv = b.status; }
       return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
     });
-  }, [orders, search, statusFilter, sortCol, sortDir]);
+  }, [orders, search, selectedStatuses, selectedServiceTypes, sortCol, sortDir]);
 
   const totalPages = Math.max(1, tasksPage?.totalPages ?? 1);
   const currentPage = Math.min(page, totalPages);
@@ -178,9 +198,94 @@ export default function Orders() {
     );
   };
 
+  const toggleStatus = (status: string) => {
+    setSelectedStatuses((prev) => {
+      const next = new Set(prev);
+      if (next.has(status)) next.delete(status);
+      else next.add(status);
+      return next;
+    });
+  };
+
+  const toggleServiceType = (serviceType: string) => {
+    setSelectedServiceTypes((prev) => {
+      const next = new Set(prev);
+      if (next.has(serviceType)) next.delete(serviceType);
+      else next.add(serviceType);
+      return next;
+    });
+  };
+
+  const resetFilters = () => {
+    setSearch("");
+    setSelectedStatuses(new Set());
+    setSelectedServiceTypes(new Set());
+  };
+
+  const hasActiveFilters =
+    search.trim() !== "" || selectedStatuses.size > 0 || selectedServiceTypes.size > 0;
+
   return (
     <AppLayout activeNav="orders">
       <div className="flex h-full gap-6 relative" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+        <div className="w-56 flex-shrink-0 hidden lg:flex flex-col bg-white rounded-2xl shadow-sm p-5 self-start sticky top-0">
+          <h2 className="font-bold mb-6" style={{ color: "var(--hayyah-navy)" }}>Filters</h2>
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-sm font-semibold mb-3 text-gray-700">Service Type</h3>
+              {serviceTypeOptions.length === 0 ? (
+                <p className="text-xs text-gray-500">No task types found.</p>
+              ) : (
+                <div className="space-y-2.5 max-h-48 overflow-y-auto pr-1">
+                  {serviceTypeOptions.map((s) => (
+                    <label key={s} className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="rounded"
+                        style={{ accentColor: "var(--hayyah-blue)" }}
+                        checked={selectedServiceTypes.has(s)}
+                        onChange={() => toggleServiceType(s)}
+                      />
+                      <span className="break-words">{s}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="h-px bg-gray-100" />
+            <div>
+              <h3 className="text-sm font-semibold mb-3 text-gray-700">Status</h3>
+              {statusOptions.length === 0 ? (
+                <p className="text-xs text-gray-500">No statuses in current list.</p>
+              ) : (
+                <div className="space-y-2.5">
+                  {statusOptions.map((status) => (
+                    <label key={status} className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="rounded"
+                        style={{ accentColor: "var(--hayyah-blue)" }}
+                        checked={selectedStatuses.has(status)}
+                        onChange={() => toggleStatus(status)}
+                      />
+                      {getStatusLabel(status)}
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="mt-6">
+            <button
+              type="button"
+              onClick={resetFilters}
+              disabled={!hasActiveFilters}
+              className="w-full py-2 rounded-xl bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Reset filters
+            </button>
+          </div>
+        </div>
         <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${selectedId ? "lg:pr-[420px]" : ""}`}>
           <div className="mb-6">
             <div className="flex items-center justify-between mb-1">
@@ -281,16 +386,6 @@ export default function Orders() {
                 <RefreshCcw className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`} aria-hidden />
                 {isRefreshing ? "Refreshing…" : "Refresh"}
               </button>
-              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-3 py-2 rounded-xl border text-sm text-gray-600 outline-none bg-white" style={{ borderColor: "#e2e8f0" }}>
-                <option value="all">All Status</option>
-                <option value="NEW">New</option>
-                <option value="AWAITING_PAYMENT">Awaiting Payment</option>
-                <option value="PAID">Paid</option>
-                <option value="FULFILLING">Fulfilling</option>
-                <option value="FULFILLED">Fulfilled</option>
-                <option value="CANCELED">Canceled</option>
-                <option value="REFUNDED">Refunded</option>
-              </select>
             </div>
 
             {/* Loading/Error states */}
@@ -433,7 +528,7 @@ export default function Orders() {
         {selectedId && (
           <div className="fixed inset-y-0 right-0 w-[400px] bg-white shadow-2xl border-l border-gray-100 z-50 flex flex-col lg:absolute lg:right-0 lg:top-0 lg:bottom-0 lg:rounded-2xl lg:border lg:shadow-md" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
             {(() => {
-              const order = filtered.find(o => o.id === selectedId);
+              const order = orders.find(o => o.id === selectedId);
               if (!order) return null;
               return (
                 <>
@@ -497,14 +592,14 @@ export default function Orders() {
                           <Wrench className="w-4 h-4 text-gray-400 mt-0.5" />
                           <div>
                             <p className="text-xs text-gray-500">Service Type</p>
-                            <p className="text-sm font-medium text-gray-900 mt-0.5">{order.service}</p>
+                            <p className="text-sm font-medium text-gray-900 mt-0.5">{order.taskType || "—"}</p>
                           </div>
                         </div>
                         <div className="flex items-start gap-3">
                           <MapPin className="w-4 h-4 text-gray-400 mt-0.5" />
                           <div>
                             <p className="text-xs text-gray-500">Location</p>
-                            <p className="text-sm font-medium text-gray-900 mt-0.5">Al Olaya District, Riyadh</p>
+                            <p className="text-sm font-medium text-gray-900 mt-0.5">—</p>
                           </div>
                         </div>
                         <div className="flex items-start gap-3">
@@ -512,6 +607,13 @@ export default function Orders() {
                           <div>
                             <p className="text-xs text-gray-500">Customer</p>
                             <p className="text-sm font-medium mt-0.5" style={{ color: "var(--hayyah-blue)" }}>{order.customer}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <Clock className="w-4 h-4 text-gray-400 mt-0.5" />
+                          <div>
+                            <p className="text-xs text-gray-500">Scheduled At</p>
+                            <p className="text-sm font-medium text-gray-900 mt-0.5">{order.date}</p>
                           </div>
                         </div>
                       </div>

@@ -746,16 +746,16 @@ export default function Providers() {
         )}
       </div>
       <Dialog open={calendarOpen} onOpenChange={setCalendarOpen}>
-        <DialogContent className="w-[min(96vw,920px)] max-w-none">
+        <DialogContent className="w-[min(96vw,980px)] max-w-none h-[94vh] overflow-y-auto p-4 sm:p-6 content-start">
           <DialogHeader>
             <DialogTitle>
               {selectedProvider ? `${selectedProvider.name} calendar` : "Provider calendar"}
             </DialogTitle>
           </DialogHeader>
-          <div className="flex items-center gap-2 rounded-lg border p-1 w-fit">
+          <div className="inline-grid grid-cols-2 w-[180px] rounded-lg border p-1 self-start">
             <button
               type="button"
-              className="px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-1"
+              className="h-8 w-full rounded-md text-xs font-medium flex items-center justify-center gap-1"
               style={{
                 background: calendarViewMode === "calendar" ? "var(--hayyah-blue-light)" : "transparent",
                 color: calendarViewMode === "calendar" ? "var(--hayyah-blue)" : "#6b7280",
@@ -767,7 +767,7 @@ export default function Providers() {
             </button>
             <button
               type="button"
-              className="px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-1"
+              className="h-8 w-full rounded-md text-xs font-medium flex items-center justify-center gap-1"
               style={{
                 background: calendarViewMode === "list" ? "var(--hayyah-blue-light)" : "transparent",
                 color: calendarViewMode === "list" ? "var(--hayyah-blue)" : "#6b7280",
@@ -783,7 +783,7 @@ export default function Providers() {
           ) : selectedProviderTasks.length === 0 ? (
             <div className="py-8 text-center text-sm text-gray-500">No scheduled tasks found for this provider.</div>
           ) : calendarViewMode === "calendar" ? (
-            <div className="grid gap-4 md:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
+            <div className="grid gap-4 md:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] min-h-[70vh]">
               <div className="rounded-xl border border-gray-200 p-2 min-w-0 overflow-hidden">
                 <Calendar
                   mode="single"
@@ -795,11 +795,11 @@ export default function Providers() {
                   onMonthChange={setSelectedCalendarDate}
                   modifiers={{ hasTasks: markedDates }}
                   modifiersClassNames={{ hasTasks: "relative after:absolute after:bottom-1.5 after:left-1/2 after:-translate-x-1/2 after:h-1.5 after:w-1.5 after:rounded-full after:bg-[var(--hayyah-blue)]" }}
-                  className="w-full [--cell-size:1.65rem] sm:[--cell-size:1.9rem]"
+                  className="w-full [--cell-size:2rem]"
                   classNames={{ root: "w-full" }}
                 />
               </div>
-              <div className="rounded-xl border border-gray-200 bg-white max-h-[60vh] overflow-y-auto min-w-0">
+              <div className="rounded-xl border border-gray-200 bg-white max-h-[70vh] overflow-y-auto min-w-0">
                 <div className="px-4 py-2 border-b bg-gray-50 text-xs font-semibold text-gray-700">
                   {selectedCalendarDate.toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" })}
                 </div>
