@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { AppLayout } from "@/components/app-layout";
 import { useDashboardMetrics } from "@/hooks/use-dashboard";
+import { useTasks } from "@/hooks/use-tasks";
 import { Users, ShoppingBag, DollarSign, Star, Plus, UserPlus, Wrench, ArrowUpRight, ArrowDownRight, MoreVertical } from "lucide-react";
 import { useLocation } from "wouter";
 import { NewOrderDialog } from "@/components/new-order-dialog";
@@ -15,22 +16,37 @@ const STATUS_COLORS: Record<string, string> = {
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const BARS = [40, 60, 45, 80, 55, 90, 100, 75, 85, 120, 95, 110];
 
-const recentOrders = [
-  { id: "#HY-2024-001", customer: "Ahmed Al-Farsi",  service: "Deep Cleaning",  provider: "Omar K.",     status: "Completed",   amount: "JOD 450", date: "Today, 10:30 AM" },
-  { id: "#HY-2024-002", customer: "Sarah R.",         service: "Pest Control",   provider: "Unassigned",  status: "Pending",     amount: "JOD 250", date: "Today, 12:00 PM" },
-  { id: "#HY-2024-003", customer: "Mohammed N.",      service: "AC Maintenance", provider: "Ali M.",      status: "In Progress", amount: "JOD 300", date: "Today, 09:15 AM" },
-  { id: "#HY-2024-004", customer: "Fatima S.",        service: "Deep Cleaning",  provider: "Hassan T.",   status: "Cancelled",   amount: "JOD 450", date: "Yesterday" },
-  { id: "#HY-2024-005", customer: "Khalid B.",        service: "Plumbing",       provider: "Ibrahim W.",  status: "Completed",   amount: "JOD 150", date: "Yesterday" },
-];
-
 const topProviders = [
   { name: "Omar K.",    service: "Deep Cleaning",  jobs: 142, rating: 4.9 },
   { name: "Ali M.",     service: "AC Maintenance", jobs: 98,  rating: 4.8 },
   { name: "Khaled S.", service: "Pest Control",   jobs: 85,  rating: 4.7 },
 ];
 
+function formatOrderStatus(status: string | undefined): string {
+  const s = (status ?? "").toUpperCase();
+  if (s === "FULFILLED" || s === "COMPLETED") return "Completed";
+  if (s === "FULFILLING" || s === "IN_PROGRESS") return "In Progress";
+  if (s === "CANCELED" || s === "CANCELLED") return "Cancelled";
+  if (s === "AWAITING_PAYMENT" || s === "NEW" || s === "PAID") return "Pending";
+  return "Pending";
+}
+
+function formatTaskTime(value: number | undefined): string {
+  if (!value) return "—";
+  const ms = value < 10_000_000_000 ? value * 1000 : value;
+  const d = new Date(ms);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 export default function Dashboard() {
   const { data } = useDashboardMetrics();
+  const { data: tasksPage, isLoading: isRecentOrdersLoading, isError: isRecentOrdersError } = useTasks(0, 5);
   const [, setLocation] = useLocation();
   const [newOrderOpen, setNewOrderOpen] = useState(false);
 
@@ -50,6 +66,16 @@ export default function Dashboard() {
     { label: "Active Orders",       value: fmt(activeOrders),   icon: DollarSign,  trend: "+24%", positive: true },
     { label: "Avg. Service Rating", value: "4.8",               icon: Star,        trend: "-2%",  positive: false },
   ];
+
+  const recentOrders = (tasksPage?.content ?? []).map((task) => ({
+    id: task.id ? `#${task.id}` : "—",
+    customer: task.customerName || "—",
+    service: task.title || task.taskType || "—",
+    provider: task.technicianName || "Unassigned",
+    status: formatOrderStatus(task.orderStatus),
+    amount: "—",
+    date: formatTaskTime(task.taskDateTime),
+  }));
 
   return (
     <AppLayout activeNav="dashboard">
@@ -186,7 +212,22 @@ export default function Dashboard() {
                 </tr>
               </thead>
               <tbody>
-                {recentOrders.map((order, i) => (
+                {isRecentOrdersLoading && (
+                  <tr>
+                    <td colSpan={7} className="py-6 px-4 text-center text-sm text-gray-500">Loading recent orders...</td>
+                  </tr>
+                )}
+                {isRecentOrdersError && (
+                  <tr>
+                    <td colSpan={7} className="py-6 px-4 text-center text-sm text-red-600">Could not load recent orders.</td>
+                  </tr>
+                )}
+                {!isRecentOrdersLoading && !isRecentOrdersError && recentOrders.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="py-6 px-4 text-center text-sm text-gray-500">No recent orders found.</td>
+                  </tr>
+                )}
+                {!isRecentOrdersLoading && !isRecentOrdersError && recentOrders.map((order, i) => (
                   <tr key={i} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
                     <td className="py-3 px-4 font-medium" style={{ color: "var(--hayyah-navy)" }}>{order.id}</td>
                     <td className="py-3 px-4">
