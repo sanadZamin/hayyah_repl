@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, type UseQueryOptions } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-fetch";
 import { apiPath } from "@/lib/api-path";
 
@@ -14,6 +14,8 @@ export interface Task {
   customerName?: string;
   taskType?: string;
   technicianName?: string;
+  /** Hayyah task field when assigned to a provider profile (matches `Technician.id`). */
+  technicianId?: string | number;
 }
 
 export interface TaskEvent {
@@ -39,7 +41,7 @@ export interface PaginatedTasksResponse {
   hasPrevious: boolean;
 }
 
-async function fetchTasks(page: number, size: number): Promise<PaginatedTasksResponse> {
+export async function fetchTasks(page: number, size: number): Promise<PaginatedTasksResponse> {
   const res = await apiFetch(apiPath(`/tasks?page=${page}&size=${size}`));
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -86,6 +88,106 @@ export function useTasks(page: number, size: number) {
     staleTime: 30_000,
     retry: 1,
   });
+}
+
+const MAX_TASK_PAGES = 100;
+
+/** Loads all task pages (for aggregates such as per-provider counts on the Providers screen). */
+export async function fetchAllTasks(pageSize = 200): Promise<Task[]> {
+  const all: Task[] = [];
+  for (let page = 0, guard = 0; guard < MAX_TASK_PAGES; guard++) {
+    const batch = await fetchTasks(page, pageSize);
+    all.push(...batch.content);
+    if (!batch.hasNext || batch.content.length === 0) break;
+    page++;
+  }
+  return all;
+}
+
+export function useAllTasksForProviderCounts(
+  options?: Pick<UseQueryOptions<Task[], Error>, "enabled">,
+) {
+  return useQuery<Task[], Error>({
+    queryKey: ["tasks", "all-for-provider-counts"],
+    queryFn: () => fetchAllTasks(200),
+    staleTime: 30_000,
+    retry: 1,
+    enabled: options?.enabled ?? true,
+  });
+}
+
+function normName(s: string): string {
+  return s.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function isCompletedTaskStatus(status: string): boolean {
+  const s = status.trim().toUpperCase();
+  return s === "FULFILLED" || s === "COMPLETED";
+}
+
+function isCanceledTaskStatus(status: string): boolean {
+  const s = status.trim().toUpperCase();
+  return s === "CANCELED" || s === "CANCELLED";
+}
+
+function isActiveTaskStatus(status: string): boolean {
+  if (!status.trim()) return false;
+  if (isCanceledTaskStatus(status)) return false;
+  if (isCompletedTaskStatus(status)) return false;
+  return true;
+}
+
+type ProviderTaskCountRow = { id: string; userId?: string; name: string };
+
+/**
+ * Maps tasks to provider profile ids: `technicianId` → `Technician.id`, else `technicianUserId` → `Technician.userId`, else normalized `technicianName` → provider name.
+ */
+export function getProviderTaskCountBuckets(
+  tasks: Task[],
+  providers: ReadonlyArray<ProviderTaskCountRow>,
+): Map<string, { completed: number; active: number }> {
+  const byId = new Map<string, { completed: number; active: number }>();
+  for (const p of providers) {
+    byId.set(String(p.id), { completed: 0, active: 0 });
+  }
+  const nameToProviderId = new Map<string, string>();
+  for (const p of providers) {
+    nameToProviderId.set(normName(p.name), String(p.id));
+  }
+
+  for (const t of tasks) {
+    const status = t.orderStatus ?? "";
+    const completed = isCompletedTaskStatus(status);
+    const active = isActiveTaskStatus(status);
+    if (!completed && !active) continue;
+
+    const ext = t as Task & Record<string, unknown>;
+    let pid: string | undefined;
+
+    const techIdRaw = ext.technicianId ?? ext.technician_id;
+    if (techIdRaw !== undefined && techIdRaw !== null && String(techIdRaw) !== "") {
+      const idStr = String(techIdRaw);
+      if (byId.has(idStr)) pid = idStr;
+    }
+
+    const techUserRaw = ext.technicianUserId ?? ext.technician_user_id;
+    if (!pid && typeof techUserRaw === "string" && techUserRaw) {
+      const match = providers.find((p) => p.userId === techUserRaw);
+      if (match) pid = String(match.id);
+    }
+
+    if (!pid && t.technicianName) {
+      pid = nameToProviderId.get(normName(t.technicianName));
+    }
+
+    if (!pid) continue;
+    const bucket = byId.get(pid);
+    if (!bucket) continue;
+    if (completed) bucket.completed += 1;
+    else bucket.active += 1;
+  }
+
+  return byId;
 }
 
 export function useTaskEvents(taskId: string | null) {

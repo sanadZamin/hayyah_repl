@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/app-layout";
 import type { Technician } from "@workspace/api-client-react";
 import { useTechnicians } from "@/hooks/use-technicians";
+import { getProviderTaskCountBuckets, useAllTasksForProviderCounts, type Task } from "@/hooks/use-tasks";
 import { OnboardTechnicianDialog } from "@/components/onboard-technician-dialog";
 import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
 import { specializationLabel } from "@/components/specialization-select";
 import { SpecializationSelect } from "@/components/specialization-select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -46,6 +49,30 @@ interface Provider {
   bio?: string;
 }
 
+function technicianToBaseProvider(t: Technician): Provider {
+  const name = `${t.firstName} ${t.lastName}`.trim() || t.email;
+  const specialty = t.specialization;
+  return {
+    id: String(t.id),
+    userId: t.userId,
+    name,
+    initials: name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase(),
+    specialty,
+    rating: t.rating != null && Number.isFinite(t.rating) ? t.rating : 0,
+    jobs: 0,
+    activeJobs: 0,
+    city: "—",
+    status: t.verified ? "Available" : "Off",
+    skills: [specialty],
+    bio: t.bio ?? "",
+  };
+}
+
 const MOCK_PROVIDERS: Provider[] = [
   { id: "p1", name: "Omar Kahlil",   initials: "OK", specialty: "Deep Cleaning Specialist", rating: 4.9, jobs: 142, activeJobs: 2, city: "Riyadh",  status: "Available", skills: ["Deep Cleaning", "Carpet Cleaning", "Sanitization"] },
   { id: "p2", name: "Ali Mahmoud",   initials: "AM", specialty: "AC Maintenance",           rating: 4.8, jobs: 98,  activeJobs: 1, city: "Jeddah",  status: "Busy",      skills: ["Split AC", "Central AC", "Duct Cleaning"] },
@@ -69,8 +96,62 @@ const AVAILABILITY_FILTERS = [
   { key: "Busy", label: "Busy" },
 ] as const;
 
+function normName(s: string): string {
+  return s.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function taskBelongsToProvider(task: Task, provider: Provider): boolean {
+  const ext = task as Task & Record<string, unknown>;
+
+  const taskTechId = ext.technicianId ?? ext.technician_id;
+  if (taskTechId != null && String(taskTechId) === String(provider.id)) {
+    return true;
+  }
+
+  const taskTechUserId = ext.technicianUserId ?? ext.technician_user_id;
+  if (provider.userId && typeof taskTechUserId === "string" && taskTechUserId === provider.userId) {
+    return true;
+  }
+
+  if (task.technicianName && normName(task.technicianName) === normName(provider.name)) {
+    return true;
+  }
+
+  return false;
+}
+
+function toDate(value: number | string | undefined): Date | null {
+  if (value == null) return null;
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(n)) return null;
+  const ms = n < 10_000_000_000 ? n * 1000 : n;
+  const d = new Date(ms);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function formatSchedule(value: number | string | undefined): string {
+  const d = toDate(value);
+  if (!d) return "Unscheduled";
+  return d.toLocaleString([], {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function dayKey(value: Date): string {
+  return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
+}
+
 export default function Providers() {
+  const queryClient = useQueryClient();
   const { data: techData, refetch: refetchTechnicians, isFetching } = useTechnicians();
+  const hasRealProviders = Boolean(techData && techData.length > 0);
+  const { data: allTasks, isLoading: isTaskCountsLoading } = useAllTasksForProviderCounts({
+    enabled: hasRealProviders,
+  });
   const { toast } = useToast();
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
   const [search, setSearch] = useState("");
@@ -82,37 +163,42 @@ export default function Providers() {
     () => new Set(),
   );
   const [editOpen, setEditOpen] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [calendarViewMode, setCalendarViewMode] = useState<"calendar" | "list">("calendar");
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date>(new Date());
   const [editSpecialization, setEditSpecialization] = useState("");
   const [editBio, setEditBio] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const providers: Provider[] =
-    techData && techData.length > 0
-      ? techData.map((t: Technician) => {
-          const name = `${t.firstName} ${t.lastName}`.trim() || t.email;
-          const specialty = t.specialization;
-          return {
-            id: String(t.id),
-            userId: t.userId,
-            name,
-            initials: name
-              .split(" ")
-              .map((n) => n[0])
-              .join("")
-              .slice(0, 2)
-              .toUpperCase(),
-            specialty,
-            rating: t.rating != null && Number.isFinite(t.rating) ? t.rating : 0,
-            jobs: 0,
-            activeJobs: 0,
-            city: "—",
-            status: t.verified ? "Available" : "Off",
-            skills: [specialty],
-            bio: t.bio ?? "",
-          };
-        })
-      : MOCK_PROVIDERS;
+  const providersFromApi = useMemo((): Provider[] | null => {
+    if (!techData?.length) return null;
+    return techData.map((t: Technician) => technicianToBaseProvider(t));
+  }, [techData]);
+
+  const taskCountsByProviderId = useMemo(() => {
+    if (!providersFromApi?.length || !allTasks) {
+      return new Map<string, { completed: number; active: number }>();
+    }
+    return getProviderTaskCountBuckets(
+      allTasks,
+      providersFromApi.map((p) => ({ id: p.id, userId: p.userId, name: p.name })),
+    );
+  }, [allTasks, providersFromApi]);
+
+  const providers: Provider[] = useMemo(() => {
+    if (providersFromApi) {
+      return providersFromApi.map((p) => {
+        const c = taskCountsByProviderId.get(String(p.id));
+        return {
+          ...p,
+          jobs: c?.completed ?? 0,
+          activeJobs: c?.active ?? 0,
+        };
+      });
+    }
+    return MOCK_PROVIDERS;
+  }, [providersFromApi, taskCountsByProviderId]);
 
   const specializationOptions = useMemo(() => {
     const uniq = new Set<string>();
@@ -151,6 +237,53 @@ export default function Providers() {
   }, [filtered, selectedId]);
 
   const selectedProvider = filtered.find((p) => p.id === selectedId);
+
+  useEffect(() => {
+    if (!selectedProvider) {
+      setCalendarOpen(false);
+    }
+  }, [selectedProvider]);
+
+  useEffect(() => {
+    if (!calendarOpen) {
+      setCalendarViewMode("calendar");
+      setSelectedCalendarDate(new Date());
+    }
+  }, [calendarOpen]);
+
+  const selectedProviderTasks = useMemo(() => {
+    if (!selectedProvider || !allTasks) return [];
+    return allTasks
+      .filter((task) => taskBelongsToProvider(task, selectedProvider))
+      .sort((a, b) => {
+        const at = toDate(a.taskDateTime)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+        const bt = toDate(b.taskDateTime)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+        return at - bt;
+      });
+  }, [allTasks, selectedProvider]);
+
+  const tasksByDay = useMemo(() => {
+    const grouped = new Map<string, Task[]>();
+    for (const task of selectedProviderTasks) {
+      const d = toDate(task.taskDateTime);
+      if (!d) continue;
+      const key = dayKey(d);
+      const bucket = grouped.get(key);
+      if (bucket) bucket.push(task);
+      else grouped.set(key, [task]);
+    }
+    return grouped;
+  }, [selectedProviderTasks]);
+
+  const markedDates = useMemo(
+    () => Array.from(tasksByDay.keys()).map((k) => new Date(`${k}T00:00:00`)),
+    [tasksByDay],
+  );
+
+  const selectedDayTasks = useMemo(() => {
+    const key = dayKey(selectedCalendarDate);
+    return tasksByDay.get(key) ?? [];
+  }, [selectedCalendarDate, tasksByDay]);
 
   const openEdit = () => {
     if (!selectedProvider) return;
@@ -329,6 +462,7 @@ export default function Providers() {
                 className="rounded-xl border-gray-200"
                 onClick={() => {
                   void refetchTechnicians();
+                  void queryClient.invalidateQueries({ queryKey: ["tasks", "all-for-provider-counts"] });
                 }}
                 disabled={isFetching}
               >
@@ -427,12 +561,16 @@ export default function Providers() {
                   <div className="px-5 py-3 bg-gray-50 flex justify-between border-t border-gray-100">
                     <div className="text-center">
                       <p className="text-xs text-gray-500 mb-0.5">Completed</p>
-                      <p className="font-semibold text-gray-900">{p.jobs}</p>
+                      <p className="font-semibold text-gray-900">
+                        {hasRealProviders && isTaskCountsLoading ? "…" : p.jobs}
+                      </p>
                     </div>
                     <div className="w-px h-8 bg-gray-200" />
                     <div className="text-center">
                       <p className="text-xs text-gray-500 mb-0.5">Active Now</p>
-                      <p className="font-semibold" style={{ color: p.activeJobs > 0 ? "var(--hayyah-blue)" : "#374151" }}>{p.activeJobs}</p>
+                      <p className="font-semibold" style={{ color: p.activeJobs > 0 ? "var(--hayyah-blue)" : "#374151" }}>
+                        {hasRealProviders && isTaskCountsLoading ? "…" : p.activeJobs}
+                      </p>
                     </div>
                     <div className="w-px h-8 bg-gray-200" />
                     <div className="flex items-center justify-center">
@@ -483,7 +621,9 @@ export default function Providers() {
                           <Star className="w-3.5 h-3.5 fill-current" /> {p.rating}
                         </span>
                       </td>
-                      <td className="py-3 px-4 text-gray-700 font-medium">{p.jobs}</td>
+                      <td className="py-3 px-4 text-gray-700 font-medium">
+                        {hasRealProviders && isTaskCountsLoading ? "…" : p.jobs}
+                      </td>
                       <td className="py-3 px-4 text-right">
                         <button className="text-xs font-semibold" style={{ color: "var(--hayyah-blue)" }}>View</button>
                       </td>
@@ -555,7 +695,12 @@ export default function Providers() {
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Today's Schedule</h3>
-                  <button className="text-xs font-medium flex items-center gap-1" style={{ color: "var(--hayyah-blue)" }}>
+                  <button
+                    type="button"
+                    className="text-xs font-medium flex items-center gap-1"
+                    style={{ color: "var(--hayyah-blue)" }}
+                    onClick={() => setCalendarOpen(true)}
+                  >
                     <CalendarDays className="w-3 h-3" /> Full Calendar
                   </button>
                 </div>
@@ -600,6 +745,101 @@ export default function Providers() {
           </div>
         )}
       </div>
+      <Dialog open={calendarOpen} onOpenChange={setCalendarOpen}>
+        <DialogContent className="sm:max-w-[700px]">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedProvider ? `${selectedProvider.name} calendar` : "Provider calendar"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex items-center gap-2 rounded-lg border p-1 w-fit">
+            <button
+              type="button"
+              className="px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-1"
+              style={{
+                background: calendarViewMode === "calendar" ? "var(--hayyah-blue-light)" : "transparent",
+                color: calendarViewMode === "calendar" ? "var(--hayyah-blue)" : "#6b7280",
+              }}
+              onClick={() => setCalendarViewMode("calendar")}
+            >
+              <CalendarDays className="w-3.5 h-3.5" />
+              Calendar
+            </button>
+            <button
+              type="button"
+              className="px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-1"
+              style={{
+                background: calendarViewMode === "list" ? "var(--hayyah-blue-light)" : "transparent",
+                color: calendarViewMode === "list" ? "var(--hayyah-blue)" : "#6b7280",
+              }}
+              onClick={() => setCalendarViewMode("list")}
+            >
+              <ListIcon className="w-3.5 h-3.5" />
+              List
+            </button>
+          </div>
+          {isTaskCountsLoading ? (
+            <div className="py-8 flex items-center justify-center text-sm text-gray-500">Loading schedule...</div>
+          ) : selectedProviderTasks.length === 0 ? (
+            <div className="py-8 text-center text-sm text-gray-500">No scheduled tasks found for this provider.</div>
+          ) : calendarViewMode === "calendar" ? (
+            <div className="grid gap-4 md:grid-cols-[1fr,1fr]">
+              <div className="rounded-xl border border-gray-200 p-2">
+                <Calendar
+                  mode="single"
+                  month={selectedCalendarDate}
+                  selected={selectedCalendarDate}
+                  onSelect={(d) => {
+                    if (d) setSelectedCalendarDate(d);
+                  }}
+                  onMonthChange={setSelectedCalendarDate}
+                  modifiers={{ hasTasks: markedDates }}
+                  modifiersClassNames={{ hasTasks: "relative after:absolute after:bottom-1.5 after:left-1/2 after:-translate-x-1/2 after:h-1.5 after:w-1.5 after:rounded-full after:bg-[var(--hayyah-blue)]" }}
+                  className="w-full"
+                />
+              </div>
+              <div className="rounded-xl border border-gray-200 bg-white max-h-[60vh] overflow-y-auto">
+                <div className="px-4 py-2 border-b bg-gray-50 text-xs font-semibold text-gray-700">
+                  {selectedCalendarDate.toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" })}
+                </div>
+                {selectedDayTasks.length === 0 ? (
+                  <p className="p-4 text-sm text-gray-500">No tasks on this day.</p>
+                ) : (
+                  <div className="divide-y">
+                    {selectedDayTasks.map((task) => (
+                      <div key={task.id} className="p-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-sm font-semibold text-gray-900 truncate">
+                            {task.title || task.taskType || `Task #${task.id}`}
+                          </p>
+                          <span className="text-xs font-medium px-2 py-1 rounded-md bg-gray-100 text-gray-700 whitespace-nowrap">
+                            {task.orderStatus || "UNKNOWN"}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">{formatSchedule(task.taskDateTime)}</p>
+                        {task.customerName && <p className="text-xs text-gray-600 mt-2">Customer: {task.customerName}</p>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="max-h-[60vh] overflow-y-auto space-y-3 pr-1">
+              {selectedProviderTasks.map((task) => (
+                <div key={task.id} className="rounded-xl border border-gray-200 p-4 bg-white">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-semibold text-gray-900 truncate">{task.title || task.taskType || `Task #${task.id}`}</p>
+                    <span className="text-xs font-medium px-2 py-1 rounded-md bg-gray-100 text-gray-700 whitespace-nowrap">{task.orderStatus || "UNKNOWN"}</span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">{formatSchedule(task.taskDateTime)}</p>
+                  {task.customerName && <p className="text-xs text-gray-600 mt-2">Customer: {task.customerName}</p>}
+                </div>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="sm:max-w-[420px]">
           <DialogHeader>
