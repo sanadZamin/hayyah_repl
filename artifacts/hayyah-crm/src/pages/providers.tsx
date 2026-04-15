@@ -4,6 +4,7 @@ import { AppLayout } from "@/components/app-layout";
 import type { Technician } from "@workspace/api-client-react";
 import { useTechnicians } from "@/hooks/use-technicians";
 import { getProviderTaskCountBuckets, useAllTasksForProviderCounts, type Task } from "@/hooks/use-tasks";
+import { useAddressById } from "@/hooks/use-address";
 import { OnboardTechnicianDialog } from "@/components/onboard-technician-dialog";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -73,15 +74,6 @@ function technicianToBaseProvider(t: Technician): Provider {
   };
 }
 
-const MOCK_PROVIDERS: Provider[] = [
-  { id: "p1", name: "Omar Kahlil",   initials: "OK", specialty: "Deep Cleaning Specialist", rating: 4.9, jobs: 142, activeJobs: 2, city: "Riyadh",  status: "Available", skills: ["Deep Cleaning", "Carpet Cleaning", "Sanitization"] },
-  { id: "p2", name: "Ali Mahmoud",   initials: "AM", specialty: "AC Maintenance",           rating: 4.8, jobs: 98,  activeJobs: 1, city: "Jeddah",  status: "Busy",      skills: ["Split AC", "Central AC", "Duct Cleaning"] },
-  { id: "p3", name: "Khaled Saqr",   initials: "KS", specialty: "Pest Control",             rating: 4.7, jobs: 85,  activeJobs: 0, city: "Riyadh",  status: "Off",       skills: ["Insects", "Rodents", "Termites"] },
-  { id: "p4", name: "Ibrahim W.",    initials: "IW", specialty: "Plumbing",                 rating: 4.5, jobs: 64,  activeJobs: 3, city: "Dammam",  status: "Busy",      skills: ["Leaks", "Pipe Fitting", "Water Heaters"] },
-  { id: "p5", name: "Hassan Tarek",  initials: "HT", specialty: "Deep Cleaning",            rating: 4.6, jobs: 112, activeJobs: 0, city: "Riyadh",  status: "Available", skills: ["Deep Cleaning", "Post-construction"] },
-  { id: "p6", name: "Youssef Ali",   initials: "YA", specialty: "Painting",                 rating: 4.9, jobs: 45,  activeJobs: 1, city: "Jeddah",  status: "Available", skills: ["Interior", "Exterior", "Wallpaper"] },
-];
-
 function statusColor(status: string) {
   switch (status) {
     case "Available": return "#53ffb0";
@@ -145,9 +137,52 @@ function dayKey(value: Date): string {
   return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
 }
 
+function getTaskAddressId(task: unknown): string | null {
+  if (!task || typeof task !== "object") return null;
+  const t = task as Record<string, unknown>;
+  const raw = t.addressId ?? t.address_id;
+  if (typeof raw !== "string") return null;
+  const trimmed = raw.trim();
+  return trimmed ? trimmed : null;
+}
+
+function formatAddressDto(dto: unknown): string | null {
+  if (!dto || typeof dto !== "object") return null;
+  const r = dto as Record<string, unknown>;
+  const directKeys = ["fullAddress", "address", "location", "addressLine", "line1"];
+  for (const k of directKeys) {
+    const v = r[k];
+    if (typeof v === "string" && v.trim()) return v.trim();
+  }
+  const parts = [r.street, r.area, r.city, r.state, r.country]
+    .filter((v): v is string => typeof v === "string" && v.trim().length > 0)
+    .map((v) => v.trim());
+  return parts.length > 0 ? parts.join(", ") : null;
+}
+
+function fallbackTaskLocation(task: unknown, providerCity: string): string {
+  if (!task || typeof task !== "object") return providerCity || "—";
+  const t = task as Record<string, unknown>;
+  const direct = t.address ?? t.location ?? t.serviceAddress ?? t.taskAddress;
+  if (typeof direct === "string" && direct.trim()) return direct.trim();
+  return providerCity || "—";
+}
+
+function TaskLocationLine({ task, providerCity }: { task: Task; providerCity: string }) {
+  const addressId = getTaskAddressId(task);
+  const { data: addressDto, isLoading } = useAddressById(addressId);
+  const text = formatAddressDto(addressDto) || fallbackTaskLocation(task, providerCity);
+  return (
+    <p className="text-xs text-gray-600 mt-2 flex items-center gap-1.5">
+      <MapPin className="w-3.5 h-3.5 text-gray-400" />
+      <span className="truncate">{isLoading ? "Loading address..." : text}</span>
+    </p>
+  );
+}
+
 export default function Providers() {
   const queryClient = useQueryClient();
-  const { data: techData, refetch: refetchTechnicians, isFetching } = useTechnicians();
+  const { data: techData, refetch: refetchTechnicians, isFetching, isLoading: isProvidersLoading } = useTechnicians();
   const hasRealProviders = Boolean(techData && techData.length > 0);
   const { data: allTasks, isLoading: isTaskCountsLoading } = useAllTasksForProviderCounts({
     enabled: hasRealProviders,
@@ -197,7 +232,7 @@ export default function Providers() {
         };
       });
     }
-    return MOCK_PROVIDERS;
+    return [];
   }, [providersFromApi, taskCountsByProviderId]);
 
   const specializationOptions = useMemo(() => {
@@ -284,6 +319,19 @@ export default function Providers() {
     const key = dayKey(selectedCalendarDate);
     return tasksByDay.get(key) ?? [];
   }, [selectedCalendarDate, tasksByDay]);
+
+  const todayProviderTasks = useMemo(() => {
+    if (!selectedProviderTasks.length) return [];
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const endOfDay = startOfDay + 24 * 60 * 60 * 1000;
+    return selectedProviderTasks.filter((task) => {
+      const d = toDate(task.taskDateTime);
+      if (!d) return false;
+      const t = d.getTime();
+      return t >= startOfDay && t < endOfDay;
+    });
+  }, [selectedProviderTasks]);
 
   const openEdit = () => {
     if (!selectedProvider) return;
@@ -526,14 +574,33 @@ export default function Providers() {
           </div>
 
           {/* Grid view */}
-          {viewMode === "grid" && filtered.length === 0 && (
+          {viewMode === "grid" && isProvidersLoading && (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 pb-6">
+              {Array.from({ length: 6 }).map((_, idx) => (
+                <div key={idx} className="rounded-2xl bg-white shadow-sm overflow-hidden animate-pulse">
+                  <div className="p-5 flex gap-4">
+                    <div className="h-16 w-16 rounded-full bg-gray-200" />
+                    <div className="flex-1 min-w-0 space-y-2">
+                      <div className="h-4 w-2/3 bg-gray-200 rounded" />
+                      <div className="h-3 w-1/2 bg-gray-100 rounded" />
+                      <div className="h-3 w-3/4 bg-gray-100 rounded" />
+                    </div>
+                  </div>
+                  <div className="px-5 py-3 bg-gray-50 border-t border-gray-100">
+                    <div className="h-4 w-full bg-gray-100 rounded" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {viewMode === "grid" && !isProvidersLoading && filtered.length === 0 && (
             <div className="rounded-2xl border border-dashed border-gray-200 bg-white py-16 text-center text-sm text-gray-500">
               {providers.length === 0
                 ? "No providers yet."
                 : "No providers match your search or filters. Try adjusting filters or reset."}
             </div>
           )}
-          {viewMode === "grid" && filtered.length > 0 && (
+          {viewMode === "grid" && !isProvidersLoading && filtered.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 pb-6">
               {filtered.map((p) => (
                 <div
@@ -585,14 +652,40 @@ export default function Providers() {
           )}
 
           {/* Table view */}
-          {viewMode === "table" && filtered.length === 0 && (
+          {viewMode === "table" && isProvidersLoading && (
+            <div className="rounded-2xl bg-white shadow-sm overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50">
+                  <tr>
+                    {["Provider", "Specialty", "City", "Status", "Rating", "Jobs", ""].map(h => (
+                      <th key={h} className="font-semibold text-gray-500 py-3 px-4 text-left">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {Array.from({ length: 6 }).map((_, idx) => (
+                    <tr key={idx} className="border-t border-gray-50 animate-pulse">
+                      <td className="py-3 px-4"><div className="h-4 w-28 bg-gray-200 rounded" /></td>
+                      <td className="py-3 px-4"><div className="h-4 w-24 bg-gray-100 rounded" /></td>
+                      <td className="py-3 px-4"><div className="h-4 w-16 bg-gray-100 rounded" /></td>
+                      <td className="py-3 px-4"><div className="h-4 w-20 bg-gray-100 rounded" /></td>
+                      <td className="py-3 px-4"><div className="h-4 w-10 bg-gray-100 rounded" /></td>
+                      <td className="py-3 px-4"><div className="h-4 w-8 bg-gray-100 rounded" /></td>
+                      <td className="py-3 px-4" />
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {viewMode === "table" && !isProvidersLoading && filtered.length === 0 && (
             <div className="rounded-2xl border border-dashed border-gray-200 bg-white py-16 text-center text-sm text-gray-500">
               {providers.length === 0
                 ? "No providers yet."
                 : "No providers match your search or filters."}
             </div>
           )}
-          {viewMode === "table" && filtered.length > 0 && (
+          {viewMode === "table" && !isProvidersLoading && filtered.length > 0 && (
             <div className="rounded-2xl bg-white shadow-sm overflow-hidden">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50">
@@ -664,9 +757,9 @@ export default function Providers() {
               <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
                 <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Verification Status</h3>
                 <div className="space-y-3">
-                  {[{ Icon: ShieldCheck, label: "Background Check", sub: "Verified" }, { Icon: FileCheck, label: "ID & Certifications", sub: "All documents up to date" }].map(({ Icon, label, sub }) => (
+                  {[{ Icon: ShieldCheck, label: "Background Check", sub: "Data unavailable" }, { Icon: FileCheck, label: "ID & Certifications", sub: "Data unavailable" }].map(({ Icon, label, sub }) => (
                     <div key={label} className="flex items-center gap-3">
-                      <Icon className="w-5 h-5 text-emerald-500" />
+                      <Icon className="w-5 h-5 text-gray-300" />
                       <div>
                         <p className="text-sm font-semibold text-gray-900">{label}</p>
                         <p className="text-xs text-gray-500">{sub}</p>
@@ -686,7 +779,7 @@ export default function Providers() {
                   </div>
                   <div className="border border-gray-100 rounded-xl p-4 text-center">
                     <CheckCircle2 className="w-5 h-5 mx-auto mb-1" style={{ color: "var(--hayyah-mint)" }} />
-                    <p className="text-xl font-bold" style={{ color: "var(--hayyah-navy)" }}>98%</p>
+                    <p className="text-xl font-bold" style={{ color: "var(--hayyah-navy)" }}>—</p>
                     <p className="text-xs text-gray-500">Completion Rate</p>
                   </div>
                 </div>
@@ -704,14 +797,14 @@ export default function Providers() {
                     <CalendarDays className="w-3 h-3" /> Full Calendar
                   </button>
                 </div>
-                {selectedProvider.activeJobs > 0 ? (
+                {todayProviderTasks.length > 0 ? (
                   <div className="space-y-3">
-                    {[...Array(selectedProvider.activeJobs)].map((_, idx) => (
-                      <div key={idx} className="flex gap-3 pl-4 py-1 border-l-2" style={{ borderColor: "var(--hayyah-blue)" }}>
+                    {todayProviderTasks.map((task) => (
+                      <div key={task.id} className="flex gap-3 pl-4 py-1 border-l-2" style={{ borderColor: "var(--hayyah-blue)" }}>
                         <div>
-                          <p className="text-xs font-bold" style={{ color: "var(--hayyah-blue)" }}>10:00 AM – 12:00 PM</p>
-                          <p className="text-sm font-semibold text-gray-900">{specializationLabel(selectedProvider.specialty)} Service</p>
-                          <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5"><MapPin className="w-3 h-3" /> {selectedProvider.city} District</p>
+                          <p className="text-xs font-bold" style={{ color: "var(--hayyah-blue)" }}>{formatSchedule(task.taskDateTime)}</p>
+                          <p className="text-sm font-semibold text-gray-900">{task.title || task.taskType || `${specializationLabel(selectedProvider.specialty)} Service`}</p>
+                          <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5"><MapPin className="w-3 h-3" /> {selectedProvider.city}</p>
                         </div>
                       </div>
                     ))}
@@ -819,6 +912,7 @@ export default function Providers() {
                         </div>
                         <p className="text-xs text-gray-500 mt-1">{formatSchedule(task.taskDateTime)}</p>
                         {task.customerName && <p className="text-xs text-gray-600 mt-2">Customer: {task.customerName}</p>}
+                        <TaskLocationLine task={task} providerCity={selectedProvider?.city ?? "—"} />
                       </div>
                     ))}
                   </div>
@@ -835,6 +929,7 @@ export default function Providers() {
                   </div>
                   <p className="text-xs text-gray-500 mt-1">{formatSchedule(task.taskDateTime)}</p>
                   {task.customerName && <p className="text-xs text-gray-600 mt-2">Customer: {task.customerName}</p>}
+                  <TaskLocationLine task={task} providerCity={selectedProvider?.city ?? "—"} />
                 </div>
               ))}
             </div>

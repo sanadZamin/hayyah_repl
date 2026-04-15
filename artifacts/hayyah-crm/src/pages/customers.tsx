@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { AppLayout } from "@/components/app-layout";
 import { useUsers, useDeleteUser, getPhone, getUsername, type HayyahUser } from "@/hooks/use-users";
-import { Search, Plus, MoreVertical, Filter, ChevronLeft, ChevronRight, Phone, Mail, Clock, CheckCircle2, X, Loader2, AlertCircle, ChevronUp, ChevronDown, ChevronsUpDown, User, Trash2 } from "lucide-react";
+import { Search, Plus, MoreVertical, Filter, ChevronLeft, ChevronRight, Phone, Mail, X, Loader2, AlertCircle, ChevronUp, ChevronDown, ChevronsUpDown, User, Trash2 } from "lucide-react";
 
 function getFullName(u: HayyahUser): string {
   if (u.firstName || u.lastName) return `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim();
@@ -354,20 +354,20 @@ export default function Customers() {
                   <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Recent Activity</h3>
                 </div>
                 <div className="space-y-4">
-                  {[1, 2, 3].map((_, idx) => (
-                    <div key={idx} className="flex gap-3 pb-4 border-b border-gray-50 last:border-0 last:pb-0">
-                      <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "rgba(83,255,176,0.2)", color: "#065f46" }}>
-                        <CheckCircle2 className="w-4 h-4" />
+                  <div className="text-sm text-gray-500 bg-gray-50 rounded-xl p-4 border border-gray-100">
+                    No recent activity data available yet.
+                  </div>
+                  <div className="space-y-3 animate-pulse">
+                    {Array.from({ length: 2 }).map((_, idx) => (
+                      <div key={idx} className="flex gap-3 pb-3 border-b border-gray-50 last:border-0 last:pb-0">
+                        <div className="w-8 h-8 rounded-full bg-gray-200 flex-shrink-0" />
+                        <div className="flex-1 min-w-0 space-y-2">
+                          <div className="h-3.5 bg-gray-200 rounded w-2/3" />
+                          <div className="h-3 bg-gray-100 rounded w-1/2" />
+                        </div>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-gray-900 truncate">Deep Cleaning Service</p>
-                        <p className="text-xs text-gray-500 mt-0.5">Order #HY-2024-00{idx + 1} • JOD 450</p>
-                        <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
-                          <Clock className="w-3 h-3" /> Oct {12 - idx}, 2023
-                        </p>
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>

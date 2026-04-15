@@ -1,8 +1,11 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { AppLayout } from "@/components/app-layout";
 import { useDashboardMetrics } from "@/hooks/use-dashboard";
-import { useTasks } from "@/hooks/use-tasks";
-import { Users, ShoppingBag, DollarSign, Star, Plus, UserPlus, Wrench, ArrowUpRight, ArrowDownRight, MoreVertical } from "lucide-react";
+import { useTasks, useAllTasksForProviderCounts, getProviderTaskCountBuckets } from "@/hooks/use-tasks";
+import { useTechnicians } from "@/hooks/use-technicians";
+import type { Technician } from "@workspace/api-client-react";
+import { specializationLabel } from "@/components/specialization-select";
+import { Users, ShoppingBag, DollarSign, Star, Plus, UserPlus, Wrench, MoreVertical } from "lucide-react";
 import { useLocation } from "wouter";
 import { NewOrderDialog } from "@/components/new-order-dialog";
 
@@ -12,15 +15,6 @@ const STATUS_COLORS: Record<string, string> = {
   Pending:     "bg-amber-100 text-amber-800",
   Cancelled:   "bg-red-100 text-red-800",
 };
-
-const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-const BARS = [40, 60, 45, 80, 55, 90, 100, 75, 85, 120, 95, 110];
-
-const topProviders = [
-  { name: "Omar K.",    service: "Deep Cleaning",  jobs: 142, rating: 4.9 },
-  { name: "Ali M.",     service: "AC Maintenance", jobs: 98,  rating: 4.8 },
-  { name: "Khaled S.", service: "Pest Control",   jobs: 85,  rating: 4.7 },
-];
 
 function formatOrderStatus(status: string | undefined): string {
   const s = (status ?? "").toUpperCase();
@@ -47,6 +41,9 @@ function formatTaskTime(value: number | undefined): string {
 export default function Dashboard() {
   const { data } = useDashboardMetrics();
   const { data: tasksPage, isLoading: isRecentOrdersLoading, isError: isRecentOrdersError } = useTasks(0, 5);
+  const { data: techData, isLoading: isTopProvidersLoading } = useTechnicians();
+  const hasProviders = Boolean(techData && techData.length > 0);
+  const { data: allTasks } = useAllTasksForProviderCounts({ enabled: hasProviders });
   const [, setLocation] = useLocation();
   const [newOrderOpen, setNewOrderOpen] = useState(false);
 
@@ -60,11 +57,43 @@ export default function Dashboard() {
   const fmt = (v: number | null, prefix = "") =>
     v !== null ? `${prefix}${v.toLocaleString()}` : "—";
 
+  const revenueByMonth = useMemo(() => {
+    const src = data as Record<string, unknown> | undefined;
+    const monthlyRaw = src?.monthlyRevenue ?? src?.revenueByMonth;
+    if (!monthlyRaw) return null;
+
+    const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    if (Array.isArray(monthlyRaw)) {
+      const arr = monthlyRaw
+        .map((v, i) => {
+          const n = typeof v === "number" ? v : Number(v);
+          return { month: monthNames[i] ?? `M${i + 1}`, value: Number.isFinite(n) ? n : 0 };
+        })
+        .slice(0, 12);
+      return arr.length > 0 ? arr : null;
+    }
+
+    if (typeof monthlyRaw === "object") {
+      const rec = monthlyRaw as Record<string, unknown>;
+      const rows = Object.entries(rec).map(([k, v]) => {
+        const n = typeof v === "number" ? v : Number(v);
+        return { month: k.slice(0, 3), value: Number.isFinite(n) ? n : 0 };
+      });
+      return rows.length > 0 ? rows.slice(0, 12) : null;
+    }
+    return null;
+  }, [data]);
+
+  const maxRevenue = useMemo(
+    () => (revenueByMonth && revenueByMonth.length > 0 ? Math.max(...revenueByMonth.map((r) => r.value), 1) : 1),
+    [revenueByMonth],
+  );
+
   const stats = [
-    { label: "Total Orders",        value: fmt(totalOrders),    icon: ShoppingBag, trend: "+12%", positive: true },
-    { label: "Active Customers",    value: fmt(totalCustomers), icon: Users,       trend: "+8%",  positive: true },
-    { label: "Active Orders",       value: fmt(activeOrders),   icon: DollarSign,  trend: "+24%", positive: true },
-    { label: "Avg. Service Rating", value: "4.8",               icon: Star,        trend: "-2%",  positive: false },
+    { label: "Total Orders",        value: fmt(totalOrders),    icon: ShoppingBag },
+    { label: "Active Customers",    value: fmt(totalCustomers), icon: Users },
+    { label: "Active Orders",       value: fmt(activeOrders),   icon: DollarSign },
+    { label: "Avg. Service Rating", value: "—",                 icon: Star },
   ];
 
   const recentOrders = (tasksPage?.content ?? []).map((task) => ({
@@ -76,6 +105,29 @@ export default function Dashboard() {
     amount: "—",
     date: formatTaskTime(task.taskDateTime),
   }));
+
+  const topProviders = useMemo(() => {
+    if (!techData?.length) return [];
+    const providers = techData.map((t: Technician) => ({
+      id: String(t.id),
+      userId: t.userId,
+      name: `${t.firstName} ${t.lastName}`.trim() || t.email,
+      service: specializationLabel(t.specialization),
+      rating: t.rating != null && Number.isFinite(t.rating) ? t.rating : 0,
+    }));
+
+    const buckets = allTasks
+      ? getProviderTaskCountBuckets(
+          allTasks,
+          providers.map((p) => ({ id: p.id, userId: p.userId, name: p.name })),
+        )
+      : new Map<string, { completed: number; active: number }>();
+
+    return providers
+      .map((p) => ({ ...p, jobs: buckets.get(p.id)?.completed ?? 0 }))
+      .sort((a, b) => (b.rating - a.rating) || (b.jobs - a.jobs))
+      .slice(0, 3);
+  }, [allTasks, techData]);
 
   return (
     <AppLayout activeNav="dashboard">
@@ -109,9 +161,8 @@ export default function Dashboard() {
                   <div className="p-3 rounded-xl" style={{ background: "var(--hayyah-blue-light)" }}>
                     <Icon className="w-5 h-5" style={{ color: "var(--hayyah-blue)" }} />
                   </div>
-                  <div className={`flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full ${stat.positive ? "text-green-700 bg-green-50" : "text-red-700 bg-red-50"}`}>
-                    {stat.positive ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-                    {stat.trend}
+                  <div className="text-xs font-medium px-2 py-1 rounded-full bg-gray-100 text-gray-500">
+                    Live
                   </div>
                 </div>
                 <div className="mt-4">
@@ -136,23 +187,33 @@ export default function Dashboard() {
               </select>
             </div>
             <div className="p-6">
-              <div className="h-64 flex items-end justify-between gap-2 pb-6 relative">
-                <div className="absolute left-0 top-0 bottom-6 flex flex-col justify-between text-xs text-gray-400 w-12 text-right pr-4">
-                  <span>150k</span><span>100k</span><span>50k</span><span>0</span>
+              {revenueByMonth && revenueByMonth.length > 0 ? (
+                <div className="h-64 flex items-end justify-between gap-2 pb-6 relative">
+                  <div className="absolute left-12 right-0 top-2 border-t border-dashed border-gray-200" />
+                  <div className="absolute left-12 right-0 top-[33%] border-t border-dashed border-gray-200" />
+                  <div className="absolute left-12 right-0 top-[66%] border-t border-dashed border-gray-200" />
+                  <div className="absolute left-12 right-0 bottom-6 border-t border-dashed border-gray-200" />
+                  <div className="w-full flex justify-between items-end pl-6 relative z-10 h-full">
+                    {revenueByMonth.map((row, i) => (
+                      <div key={`${row.month}-${i}`} className="flex flex-col items-center gap-2 w-full">
+                        <div
+                          className="w-full max-w-[28px] mx-auto rounded-t-md relative group transition-all"
+                          style={{
+                            height: `${Math.max(4, (row.value / maxRevenue) * 100)}%`,
+                            background: i === revenueByMonth.length - 1 ? "var(--hayyah-blue)" : "var(--hayyah-blue-light)",
+                          }}
+                          title={`${row.month}: ${row.value.toLocaleString()}`}
+                        />
+                        <span className="text-xs text-gray-500 font-medium">{row.month}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <div className="absolute left-12 right-0 top-2 border-t border-dashed border-gray-200" />
-                <div className="absolute left-12 right-0 top-[33%] border-t border-dashed border-gray-200" />
-                <div className="absolute left-12 right-0 top-[66%] border-t border-dashed border-gray-200" />
-                <div className="absolute left-12 right-0 bottom-6 border-t border-dashed border-gray-200" />
-                <div className="w-full flex justify-between items-end pl-14 relative z-10 h-full">
-                  {BARS.map((height, i) => (
-                    <div key={i} className="flex flex-col items-center gap-2 w-full">
-                      <div className="w-full max-w-[28px] mx-auto rounded-t-md relative group transition-all" style={{ height: `${height}%`, background: i === 9 ? "var(--hayyah-blue)" : "var(--hayyah-blue-light)" }} />
-                      <span className="text-xs text-gray-500 font-medium">{MONTHS[i]}</span>
-                    </div>
-                  ))}
+              ) : (
+                <div className="h-64 rounded-xl border border-dashed border-gray-200 flex items-center justify-center text-sm text-gray-500">
+                  Revenue analytics unavailable.
                 </div>
-              </div>
+              )}
             </div>
           </div>
 
@@ -165,7 +226,22 @@ export default function Dashboard() {
               </h2>
             </div>
             <div className="divide-y divide-gray-50">
-              {topProviders.map((provider, i) => (
+              {isTopProvidersLoading && Array.from({ length: 3 }).map((_, i) => (
+                <div key={`sk-${i}`} className="p-5 flex items-center justify-between animate-pulse">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-gray-200" />
+                    <div className="space-y-2">
+                      <div className="h-3 w-24 bg-gray-200 rounded" />
+                      <div className="h-3 w-20 bg-gray-100 rounded" />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="h-3 w-10 bg-gray-100 rounded" />
+                    <div className="h-3 w-12 bg-gray-100 rounded" />
+                  </div>
+                </div>
+              ))}
+              {!isTopProvidersLoading && topProviders.map((provider, i) => (
                 <div key={i} className="p-5 flex items-center justify-between hover:bg-gray-50 transition-colors">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm text-white" style={{ background: "var(--hayyah-navy)" }}>
@@ -184,6 +260,9 @@ export default function Dashboard() {
                   </div>
                 </div>
               ))}
+              {!isTopProvidersLoading && topProviders.length === 0 && (
+                <div className="p-6 text-sm text-gray-500 text-center">No providers found.</div>
+              )}
             </div>
             <div className="p-4 border-t border-gray-50">
               <button onClick={() => setLocation("/providers")} className="w-full text-sm font-medium py-2 rounded-lg hover:bg-gray-50 transition-colors" style={{ color: "var(--hayyah-blue)" }}>

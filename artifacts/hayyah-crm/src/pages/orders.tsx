@@ -1,12 +1,13 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { AppLayout } from "@/components/app-layout";
-import { useTasks, useDeleteTasks, useTaskEvents } from "@/hooks/use-tasks";
+import { useTasks, useDeleteTasks, useTaskEvents, useAllTasksForProviderCounts } from "@/hooks/use-tasks";
 import { useDashboardMetrics } from "@/hooks/use-dashboard";
 import { useQueryClient } from "@tanstack/react-query";
 import { Search, Eye, Edit2, Download, Calendar, X, Wrench, MapPin, User, Clock, CheckCircle2, Loader2, AlertCircle, ChevronUp, ChevronDown, ChevronsUpDown, Trash2, Plus, RefreshCcw } from "lucide-react";
 import { NewOrderDialog } from "@/components/new-order-dialog";
 import { dashboardStatsApiPath } from "@/hooks/use-dashboard";
 import { format } from "date-fns";
+import { useAddressById } from "@/hooks/use-address";
 
 const STATUS_LABEL: Record<string, string> = {
   NEW: "New",
@@ -44,6 +45,94 @@ function formatDate(ms: number) {
   try { return format(new Date(ms), "MMM d, h:mm a"); } catch { return "—"; }
 }
 
+function getTaskLocation(task: unknown): string {
+  if (!task || typeof task !== "object") return "—";
+  const t = task as Record<string, unknown>;
+
+  const directKeys = [
+    "address",
+    "location",
+    "serviceAddress",
+    "taskAddress",
+    "customerAddress",
+    "fullAddress",
+  ];
+  for (const k of directKeys) {
+    const v = t[k];
+    if (typeof v === "string" && v.trim()) return v.trim();
+  }
+
+  const nestedAddress = t.address;
+  if (nestedAddress && typeof nestedAddress === "object") {
+    const a = nestedAddress as Record<string, unknown>;
+    const parts = [a.street, a.area, a.city, a.state, a.country]
+      .filter((v): v is string => typeof v === "string" && v.trim().length > 0)
+      .map((v) => v.trim());
+    if (parts.length > 0) return parts.join(", ");
+  }
+
+  for (const [k, v] of Object.entries(t)) {
+    if (typeof v === "string" && /(address|location)/i.test(k) && v.trim()) {
+      return v.trim();
+    }
+  }
+
+  const addressId = getTaskAddressId(task);
+  if (addressId) {
+    return `Address ID: ${addressId}`;
+  }
+
+  return "—";
+}
+
+function getTaskAddressId(task: unknown): string | null {
+  if (!task || typeof task !== "object") return null;
+  const walk = (node: unknown, depth: number): string | null => {
+    if (!node || typeof node !== "object" || depth > 3) return null;
+    const rec = node as Record<string, unknown>;
+    for (const [k, v] of Object.entries(rec)) {
+      if (v == null) continue;
+      if (/(^|_)address(id)?$/i.test(k) || /address.?id/i.test(k)) {
+        if (typeof v === "string" && v.trim()) return v.trim();
+        if (typeof v === "number" && Number.isFinite(v)) return String(v);
+      }
+    }
+    for (const v of Object.values(rec)) {
+      if (typeof v === "object") {
+        const nested = walk(v, depth + 1);
+        if (nested) return nested;
+      }
+    }
+    return null;
+  };
+  const found = walk(task, 0);
+  if (found) return found;
+  return null;
+}
+
+function formatAddressDto(dto: unknown): string | null {
+  if (!dto || typeof dto !== "object") return null;
+  const r = dto as Record<string, unknown>;
+
+  const directKeys = ["fullAddress", "address", "location", "addressLine", "line1"];
+  for (const k of directKeys) {
+    const v = r[k];
+    if (typeof v === "string" && v.trim()) return v.trim();
+  }
+
+  const parts = [r.street, r.area, r.city, r.state, r.country]
+    .filter((v): v is string => typeof v === "string" && v.trim().length > 0)
+    .map((v) => v.trim());
+  if (parts.length > 0) return parts.join(", ");
+
+  const freeText = Object.entries(r)
+    .filter(([k, v]) => typeof v === "string" && v.trim().length > 0 && /(address|location|street|city|area|district|building)/i.test(k))
+    .map(([, v]) => (v as string).trim());
+  if (freeText.length > 0) return freeText.join(", ");
+
+  return null;
+}
+
 
 
 type SortCol = "id" | "customer" | "tasktype" | "service" | "date" | "status";
@@ -77,7 +166,15 @@ export default function Orders() {
   const [showNewTask, setShowNewTask] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const { data: taskEvents, isLoading: isEventsLoading, isError: isEventsError, error: eventsError } = useTaskEvents(selectedId);
-  const tasks = tasksPage?.content ?? [];
+  const hasClientFilters =
+    search.trim() !== "" || selectedStatuses.size > 0 || selectedServiceTypes.size > 0;
+  const { data: allTasksForFiltering, isLoading: isLoadingAllTasks } = useAllTasksForProviderCounts({
+    enabled: hasClientFilters,
+  });
+  const tasks = useMemo(
+    () => (hasClientFilters ? (allTasksForFiltering ?? []) : (tasksPage?.content ?? [])),
+    [allTasksForFiltering, hasClientFilters, tasksPage?.content],
+  );
 
   const refreshOrdersData = useCallback(async () => {
     const jobs = [
@@ -178,13 +275,31 @@ export default function Orders() {
     });
   }, [orders, search, selectedStatuses, selectedServiceTypes, sortCol, sortDir]);
 
-  const totalPages = Math.max(1, tasksPage?.totalPages ?? 1);
+  const totalElements = hasClientFilters
+    ? filtered.length
+    : (tasksPage?.totalElements ?? filtered.length);
+  const totalPages = Math.max(1, Math.ceil(totalElements / pageSize));
   const currentPage = Math.min(page, totalPages);
   useEffect(() => {
     if (page > totalPages) setPage(totalPages);
   }, [page, totalPages]);
-  const totalElements = tasksPage?.totalElements ?? filtered.length;
-  const pagedRows = useMemo(() => filtered.slice(0, pageSize), [filtered, pageSize]);
+  useEffect(() => {
+    setPage(1);
+  }, [search, selectedStatuses, selectedServiceTypes, pageSize]);
+  const pagedRows = useMemo(() => {
+    if (!hasClientFilters) return filtered;
+    const start = (currentPage - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, hasClientFilters, currentPage, pageSize]);
+  const selectedOrder = useMemo(() => orders.find((o) => o.id === selectedId), [orders, selectedId]);
+  const selectedAddressId = useMemo(() => getTaskAddressId(selectedOrder?.rawTask), [selectedOrder]);
+  const { data: selectedAddress, isLoading: isAddressLoading, isError: isAddressError } = useAddressById(selectedAddressId);
+  const resolvedAddressText = useMemo(() => {
+    const fromDto = formatAddressDto(selectedAddress);
+    if (fromDto) return fromDto;
+    if (selectedAddressId && isAddressError) return `Address ID: ${selectedAddressId}`;
+    return selectedOrder ? getTaskLocation(selectedOrder.rawTask) : "—";
+  }, [selectedAddress, selectedOrder, selectedAddressId, isAddressError]);
 
 
   const toggleRow = (id: string) => setSelectedRows(prev => prev.includes(id) ? prev.filter(r => r !== id) : [...prev, id]);
@@ -389,7 +504,7 @@ export default function Orders() {
             </div>
 
             {/* Loading/Error states */}
-            {isLoading && (
+            {(isLoading || isLoadingAllTasks) && (
               <div className="p-12 flex justify-center">
                 <Loader2 className="w-8 h-8 animate-spin" style={{ color: "var(--hayyah-blue)" }} />
               </div>
@@ -441,7 +556,7 @@ export default function Orders() {
                   </tr>
                 </thead>
                 <tbody>
-                  {!isLoading && filtered.length === 0 && (
+                  {!isLoading && !isLoadingAllTasks && filtered.length === 0 && (
                     <tr>
                       <td colSpan={8} className="py-16 text-center text-sm text-gray-400">
                         {isError ? "Failed to load tasks." : tasks.length === 0 ? "No tasks found." : "No tasks match your filters on this page."}
@@ -482,7 +597,7 @@ export default function Orders() {
               </table>
             </div>
             {/* Pagination */}
-            {!isLoading && totalElements > 0 && (
+            {!isLoading && !isLoadingAllTasks && totalElements > 0 && (
               <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between gap-3 flex-wrap">
                 <div className="text-xs text-gray-500">
                   Showing {(currentPage - 1) * pageSize + 1} to {Math.min(currentPage * pageSize, totalElements)} of {totalElements} tasks
@@ -528,7 +643,7 @@ export default function Orders() {
         {selectedId && (
           <div className="fixed inset-y-0 right-0 w-[400px] bg-white shadow-2xl border-l border-gray-100 z-50 flex flex-col lg:absolute lg:right-0 lg:top-0 lg:bottom-0 lg:rounded-2xl lg:border lg:shadow-md" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
             {(() => {
-              const order = orders.find(o => o.id === selectedId);
+              const order = selectedOrder;
               if (!order) return null;
               return (
                 <>
@@ -599,7 +714,9 @@ export default function Orders() {
                           <MapPin className="w-4 h-4 text-gray-400 mt-0.5" />
                           <div>
                             <p className="text-xs text-gray-500">Location</p>
-                            <p className="text-sm font-medium text-gray-900 mt-0.5">—</p>
+                            <p className="text-sm font-medium text-gray-900 mt-0.5">
+                              {isAddressLoading ? "Loading address..." : resolvedAddressText}
+                            </p>
                           </div>
                         </div>
                         <div className="flex items-start gap-3">
