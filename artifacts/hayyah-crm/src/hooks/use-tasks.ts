@@ -1,6 +1,7 @@
-import { useQuery, useQueryClient, type UseQueryOptions } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, type UseQueryOptions } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-fetch";
 import { apiPath } from "@/lib/api-path";
+import { useToast } from "@/hooks/use-toast";
 
 export interface Task {
   id: string;
@@ -85,6 +86,44 @@ export function useTasks(page: number, size: number) {
   return useQuery<PaginatedTasksResponse, Error>({
     queryKey: ["tasks", page, size],
     queryFn: () => fetchTasks(page, size),
+    staleTime: 30_000,
+    retry: 1,
+  });
+}
+
+export async function fetchUnassignedTasks(page: number, size: number): Promise<PaginatedTasksResponse> {
+  const res = await apiFetch(apiPath(`/tasks/unassigned?page=${page}&size=${size}`));
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as Record<string, string>).error_description || `Failed to fetch unassigned tasks (${res.status})`);
+  }
+  const data = await res.json();
+  if (Array.isArray(data)) {
+    return {
+      content: data as Task[],
+      page,
+      size,
+      totalElements: data.length,
+      totalPages: 1,
+      hasNext: false,
+      hasPrevious: false,
+    };
+  }
+  return {
+    content: (data.content ?? data.data ?? []) as Task[],
+    page: Number(data.page ?? page),
+    size: Number(data.size ?? size),
+    totalElements: Number(data.totalElements ?? (data.content?.length ?? 0)),
+    totalPages: Number(data.totalPages ?? 1),
+    hasNext: Boolean(data.hasNext),
+    hasPrevious: Boolean(data.hasPrevious),
+  };
+}
+
+export function useUnassignedTasks(page: number, size: number) {
+  return useQuery<PaginatedTasksResponse, Error>({
+    queryKey: ["tasks", "unassigned", page, size],
+    queryFn: () => fetchUnassignedTasks(page, size),
     staleTime: 30_000,
     retry: 1,
   });
@@ -227,4 +266,69 @@ export function useDeleteTasks() {
   };
 
   return { deleteTasks };
+}
+
+export function useAssignTask() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({ taskId, technicianId }: { taskId: string; technicianId: string }) => {
+      const encodedTaskId = encodeURIComponent(taskId);
+      const encodedTechId = encodeURIComponent(technicianId);
+      const attempts: Array<{ url: string; body: Record<string, unknown> }> = [
+        {
+          url: apiPath(`/tasks/${encodedTaskId}/assign`),
+          body: { technicianId },
+        },
+        {
+          url: apiPath(`/tasks/${encodedTaskId}/assign/${encodedTechId}`),
+          body: {},
+        },
+        {
+          url: apiPath(`/tasks/${encodedTaskId}/assign?technicianId=${encodedTechId}`),
+          body: {},
+        },
+        {
+          url: apiPath("/tasks/assign"),
+          body: { taskId, technicianId },
+        },
+      ];
+
+      let lastStatus = 0;
+      let lastError = "Failed to assign task.";
+      for (const attempt of attempts) {
+        const res = await apiFetch(attempt.url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(attempt.body),
+        });
+        if (res.ok) {
+          return res.json().catch(() => ({}));
+        }
+        lastStatus = res.status;
+        const err = await res.json().catch(() => ({}));
+        lastError =
+          (err as Record<string, string>).error_description ||
+          (err as Record<string, string>).message ||
+          `Failed to assign task (${res.status})`;
+      }
+
+      throw new Error(lastStatus ? `${lastError} (HTTP ${lastStatus})` : lastError);
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["tasks"] }),
+        queryClient.invalidateQueries({ queryKey: ["tasks", "unassigned"] }),
+      ]);
+      toast({ title: "Task assigned successfully" });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Could not assign task",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
 }

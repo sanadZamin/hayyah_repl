@@ -7,6 +7,7 @@ import {
   Wrench,
   Clock3,
   CircleDollarSign,
+  LineChart,
   Bell,
   Search,
   ChevronDown,
@@ -19,6 +20,7 @@ import { useAuth } from "@/hooks/use-auth";
 
 const baseNavItems = [
   { icon: LayoutDashboard, label: "Dashboard", id: "dashboard", href: "/" },
+  { icon: LineChart, label: "Revenue", id: "revenue", href: "/revenue" },
   { icon: Users, label: "Customers", id: "customers", href: "/customers" },
   { icon: ShoppingBag, label: "Tasks", id: "orders", href: "/orders" },
   { icon: Clock3, label: "Task History", id: "task-history", href: "/task-history" },

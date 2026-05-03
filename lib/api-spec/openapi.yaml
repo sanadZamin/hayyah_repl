@@ -547,6 +547,7 @@ components:
         - CHEF
         - HVAC
         - LOCKSMITH
+        - PEST_CONTROL
 
     CreateTechnician:
       type: object

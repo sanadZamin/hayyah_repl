@@ -13,6 +13,7 @@ export const SERVICE_SPECIALIZATION_OPTIONS = [
   { value: "CHEF", label: "Chef" },
   { value: "HVAC", label: "HVAC" },
   { value: "LOCKSMITH", label: "Locksmith" },
+  { value: "PEST_CONTROL", label: "Pest control" },
 ] as const satisfies readonly { value: TechnicianSpecialization; label: string }[];
 
 export type ServiceSpecializationValue = (typeof SERVICE_SPECIALIZATION_OPTIONS)[number]["value"];

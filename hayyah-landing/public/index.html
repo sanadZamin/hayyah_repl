@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Hayyah — service operations, providers, and customers in one place." />
+    <title>Hayyah</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/css/landing.css" />
+    <link rel="icon" type="image/png" href="/images/hayyah-icon-blue.png" />
+  </head>
+  <body>
+    <div class="bg-blob bg-blob-1" aria-hidden="true"></div>
+    <div class="bg-blob bg-blob-2" aria-hidden="true"></div>
+
+    <header class="nav">
+      <a class="brand" href="/" aria-label="Hayyah home">
+        <img class="brand-mark" src="/images/hayyah-icon-blue.png" alt="" width="36" height="36" />
+        <img class="brand-word" src="/images/hayyah-wordmark-blue.png" alt="Hayyah" height="28" />
+      </a>
+      <nav class="nav-actions">
+        <a class="btn btn-ghost" href="__AUTH_URL__">Sign in</a>
+        <a class="btn btn-primary" href="__APP_URL__">Open app</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <p class="eyebrow">Operations for modern service businesses</p>
+        <h1>Run tasks, providers, and customers in one calm workspace.</h1>
+        <p class="lede">
+          Hayyah brings scheduling, assignments, and visibility together — so your team spends less time chasing status
+          and more time delivering great service.
+        </p>
+        <div class="hero-cta">
+          <a class="btn btn-primary btn-lg" href="__APP_URL__">Get started</a>
+          <a class="btn btn-secondary btn-lg" href="__AUTH_URL__">Sign in to dashboard</a>
+        </div>
+        <ul class="trust" aria-label="Highlights">
+          <li>Real-time task visibility</li>
+          <li>Provider-friendly workflows</li>
+          <li>Secure access with Keycloak</li>
+        </ul>
+      </section>
+
+      <section class="panel features" aria-labelledby="features-heading">
+        <h2 id="features-heading">Built for how you actually work</h2>
+        <div class="grid-3">
+          <article class="card">
+            <div class="card-icon" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 11l3 3L22 4" />
+                <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
+              </svg>
+            </div>
+            <h3>Tasks &amp; orders</h3>
+            <p>Track status, schedules, and handoffs without losing context between teams.</p>
+          </article>
+          <article class="card">
+            <div class="card-icon" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="8" r="4" />
+                <path d="M4 20v-1a8 8 0 0116 0v1" />
+              </svg>
+            </div>
+            <h3>Providers</h3>
+            <p>See who is available, what they are working on, and where coverage gaps appear.</p>
+          </article>
+          <article class="card">
+            <div class="card-icon" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M4 19V5" />
+                <path d="M4 19h16" />
+                <path d="M8 17V9" />
+                <path d="M12 17V5" />
+                <path d="M16 17v-4" />
+              </svg>
+            </div>
+            <h3>Insight</h3>
+            <p>Revenue and activity signals that help you prioritize what matters this week.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="cta-band">
+        <div class="cta-inner">
+          <h2>Ready when you are</h2>
+          <p>Open the Hayyah app or sign in to pick up where you left off.</p>
+          <div class="hero-cta">
+            <a class="btn btn-primary btn-lg" href="__APP_URL__">Open app</a>
+            <a class="btn btn-ghost btn-lg" href="__AUTH_URL__" style="color: #fff; border-color: rgba(255,255,255,0.35)"
+              >Sign in</a
+            >
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span class="muted">© Hayyah</span>
+      <span class="dot" aria-hidden="true">·</span>
+      <a href="__APP_URL__">App</a>
+      <span class="dot" aria-hidden="true">·</span>
+      <a href="__AUTH_URL__">Sign in</a>
+    </footer>
+  </body>
+</html>

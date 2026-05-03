@@ -30,12 +30,6 @@ const apiProxy = (apiTarget: string, authTarget: string): Record<string, ProxyOp
 
   return {
     "/api": { target: apiTarget, changeOrigin: true, configure },
-    "/frontend/api": {
-      target: apiTarget,
-      rewrite: (p: string) => p.replace(/^\/frontend\/api/, "/api"),
-      changeOrigin: true,
-      configure,
-    },
     "/auth": { target: authTarget, changeOrigin: true, configure },
   };
 };
@@ -55,8 +49,15 @@ export default defineConfig(async ({ mode }) => {
   // One-line sanity check when debugging “all APIs 404” locally.
   console.info(`[vite] proxy /api → ${apiProxyTarget}  |  /auth → ${authProxyTarget}`);
 
+  /** Vite `base` for built asset URLs and `import.meta.env.BASE_URL`. Default `/` for root hosting. */
+  const rawBase = (env.VITE_BASE_PATH ?? process.env.VITE_BASE_PATH ?? "/").trim();
+  const base =
+    rawBase === "" || rawBase === "/"
+      ? "/"
+      : `${rawBase.startsWith("/") ? "" : "/"}${rawBase}`.replace(/\/+$/, "") + "/";
+
   return {
-    base: "/frontend/",
+    base,
     plugins: [
       react(),
       tailwindcss(),

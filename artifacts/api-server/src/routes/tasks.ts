@@ -151,6 +151,93 @@ router.get("/tasks", async (req, res) => {
   res.status(lastStatus).json(parsed);
 });
 
+router.get("/tasks/unassigned", async (req, res) => {
+  const auth = req.headers.authorization;
+  if (!auth || !auth.startsWith("Bearer ")) {
+    res.status(401).json({ error: "unauthorized" });
+    return;
+  }
+  const token = auth.slice(7);
+  const page = typeof req.query.page === "string" ? req.query.page : "0";
+  const size = typeof req.query.size === "string" ? req.query.size : "20";
+  const paging = `page=${encodeURIComponent(page)}&size=${encodeURIComponent(size)}`;
+  const url = `${BASE_URL}/tasks/unassigned?${paging}`;
+
+  try {
+    const { status, data } = await hayyahGet(url, token);
+    console.log(`[tasks] GET ${url} → ${status}${status !== 200 ? ` | ${data.slice(0, 150)}` : ""}`);
+    if (!data || data.trim() === "") {
+      res.status(status).end();
+      return;
+    }
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(data);
+    } catch {
+      parsed = [];
+    }
+    res.status(status).json(parsed);
+  } catch (err) {
+    console.error("[tasks] GET /tasks/unassigned error:", err);
+    res.status(502).json({ error: "proxy_error", error_description: "Could not reach task API." });
+  }
+});
+
+router.post("/tasks/:id/assign", async (req, res) => {
+  const auth = req.headers.authorization;
+  if (!auth || !auth.startsWith("Bearer ")) {
+    res.status(401).json({ error: "unauthorized" });
+    return;
+  }
+  const token = auth.slice(7);
+  const { id } = req.params;
+  const technicianId = String((req.body as Record<string, unknown>)?.technicianId ?? "").trim();
+
+  if (!id || !technicianId) {
+    res.status(400).json({ error: "bad_request", error_description: "task id and technicianId are required." });
+    return;
+  }
+
+  const candidates: Array<{ url: string; body: string }> = [
+    { url: `${BASE_URL}/tasks/${encodeURIComponent(id)}/assign/${encodeURIComponent(technicianId)}`, body: "{}" },
+    { url: `${BASE_URL}/tasks/${encodeURIComponent(id)}/assign?technicianId=${encodeURIComponent(technicianId)}`, body: "{}" },
+    { url: `${BASE_URL}/tasks/assign`, body: JSON.stringify({ taskId: id, technicianId }) },
+  ];
+
+  let lastStatus = 502;
+  let lastData = "";
+  for (const c of candidates) {
+    try {
+      const { status, data } = await hayyahPost(c.url, token, c.body);
+      console.log(`[tasks] ASSIGN POST ${c.url} → ${status}${status >= 400 ? ` | ${data.slice(0, 150)}` : ""}`);
+      if (status >= 200 && status < 300) {
+        if (!data || data.trim() === "") {
+          res.status(status).json({ success: true });
+          return;
+        }
+        try {
+          res.status(status).json(JSON.parse(data));
+        } catch {
+          res.status(status).json({ success: true, raw: data });
+        }
+        return;
+      }
+      lastStatus = status;
+      lastData = data;
+    } catch (err) {
+      console.error(`[tasks] ASSIGN candidate failed: ${c.url}`, err);
+    }
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(lastData);
+  } catch {
+    parsed = { error: "assign_failed", error_description: lastData || `Status ${lastStatus}` };
+  }
+  res.status(lastStatus).json(parsed);
+});
+
 router.post("/tasks", async (req, res) => {
   const auth = req.headers.authorization;
   if (!auth || !auth.startsWith("Bearer ")) {

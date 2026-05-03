@@ -1,0 +1,202 @@
+/**
+ * Hayyah-branded Keycloak login.
+ * Supports older PatternFly 3/4 login (`login-pf`) and newer PF5 / Keycloak v2 login layouts.
+ */
+:root {
+  --hayyah-blue: #0088fb;
+  --hayyah-navy: #0d2270;
+  --hayyah-mint: #53ffb0;
+  --hayyah-blue-light: #e8f4ff;
+}
+
+/* ---- Page background (all generations) ---- */
+html,
+body {
+  background: radial-gradient(circle at 12% 8%, rgba(0, 136, 251, 0.16), transparent 38%),
+    radial-gradient(circle at 88% 92%, rgba(83, 255, 176, 0.18), transparent 32%),
+    #f6faff !important;
+}
+
+/* ---- Newer Keycloak (PF5) login shell ---- */
+.pf-v5-c-login {
+  min-height: 100vh !important;
+  display: flex !important;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem !important;
+  box-sizing: border-box;
+}
+
+.pf-v5-c-login,
+.pf-v5-c-login__container {
+  background: transparent !important;
+}
+
+/*
+ * PF5 “split” login often leaves a slim left column or header with the realm
+ * display name (“hayyah”) as plain text. We already show the wordmark inside
+ * the card, so hide those outer brand/header nodes.
+ */
+.pf-v5-c-login__header,
+.pf-v5-c-login__aside,
+aside.pf-v5-c-login__aside,
+.pf-v5-c-login .pf-v5-c-brand,
+.pf-v5-c-login__brand,
+#kc-header,
+#kc-header-wrapper,
+#kc-logo-text,
+.kc-logo-text {
+  display: none !important;
+}
+
+/* Collapse wide split layouts into a single centered column */
+.pf-v5-c-login__container {
+  display: flex !important;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  width: 100% !important;
+  max-width: 440px !important;
+  margin: 0 auto !important;
+  padding: 0 !important;
+  grid-template-columns: none !important;
+}
+
+.pf-v5-c-login__main {
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto;
+  grid-column: 1 / -1 !important;
+  border-radius: 16px;
+  border: 1px solid #dce8f6;
+  box-shadow: 0 8px 28px rgba(13, 34, 112, 0.1);
+  padding: 1.75rem 1.5rem 1.5rem;
+  box-sizing: border-box;
+}
+
+/* Wordmark above the form */
+.pf-v5-c-login__main::before {
+  content: "";
+  display: block;
+  height: 40px;
+  margin: 0 auto 1.25rem;
+  max-width: 220px;
+  background: url("../img/hayyah-wordmark.png") center / contain no-repeat;
+}
+
+.pf-v5-c-login__main-header,
+.pf-v5-c-login__main-header .pf-v5-c-title {
+  color: var(--hayyah-navy) !important;
+}
+
+.pf-v5-c-login__main-body,
+.pf-v5-c-login__main-footer {
+  color: #334155;
+}
+
+.pf-v5-c-form-control {
+  border-radius: 10px;
+  border-color: #cfe2f8 !important;
+}
+
+.pf-v5-c-form-control:focus {
+  border-color: var(--hayyah-blue) !important;
+  box-shadow: 0 0 0 2px rgba(0, 136, 251, 0.22) !important;
+}
+
+.pf-v5-c-button.pf-m-primary,
+.pf-v5-c-login__main-footer .pf-v5-c-button.pf-m-primary {
+  background: var(--hayyah-blue) !important;
+  border-color: var(--hayyah-blue) !important;
+  border-radius: 10px;
+}
+
+.pf-v5-c-button.pf-m-primary:hover {
+  background: #007ae0 !important;
+  border-color: #007ae0 !important;
+}
+
+.pf-v5-c-login a,
+.pf-v5-c-login__main-footer a {
+  color: var(--hayyah-blue) !important;
+}
+
+/* ---- Classic Keycloak / PF3–4 login ---- */
+body.login-pf {
+  background: transparent !important;
+}
+
+.login-pf-page,
+#kc-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  box-sizing: border-box;
+}
+
+#kc-content,
+.login-pf-page .card-pf {
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto;
+}
+
+.login-pf-page .card-pf::before {
+  content: "";
+  display: block;
+  height: 40px;
+  margin: 0 auto 1.25rem;
+  max-width: 220px;
+  background: url("../img/hayyah-wordmark.png") center / contain no-repeat;
+}
+
+#kc-page-title,
+.login-pf-page .card-pf p,
+.login-pf-page .card-pf label,
+.pf-c-form__label-text {
+  color: var(--hayyah-navy);
+}
+
+.login-pf-page .card-pf {
+  border-radius: 16px;
+  border: 1px solid #dce8f6;
+  box-shadow: 0 8px 24px rgba(13, 34, 112, 0.08);
+}
+
+.pf-c-form-control,
+#kc-content-wrapper input[type="text"],
+#kc-content-wrapper input[type="password"],
+#kc-content-wrapper input[type="email"] {
+  border-radius: 10px;
+  border-color: #cfe2f8;
+}
+
+.pf-c-form-control:focus {
+  border-color: var(--hayyah-blue);
+  box-shadow: 0 0 0 2px rgba(0, 136, 251, 0.2);
+}
+
+.pf-c-button.pf-m-primary,
+#kc-form-buttons input[type="submit"] {
+  background: var(--hayyah-blue);
+  border-color: var(--hayyah-blue);
+  border-radius: 10px;
+}
+
+.pf-c-button.pf-m-primary:hover,
+#kc-form-buttons input[type="submit"]:hover {
+  background: #007ae0;
+  border-color: #007ae0;
+}
+
+a,
+#kc-info a {
+  color: var(--hayyah-blue);
+}
+
+.alert-success {
+  border-left: 4px solid var(--hayyah-mint);
+}

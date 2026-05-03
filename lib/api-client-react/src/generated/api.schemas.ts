@@ -120,6 +120,7 @@ export const TechnicianSpecialization = {
   CHEF: "CHEF",
   HVAC: "HVAC",
   LOCKSMITH: "LOCKSMITH",
+  PEST_CONTROL: "PEST_CONTROL",
 } as const;
 
 /**

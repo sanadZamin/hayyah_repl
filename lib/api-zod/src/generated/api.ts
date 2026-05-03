@@ -275,6 +275,7 @@ export const RegisterTechnicianByAdminBody = zod.object({
       "CHEF",
       "HVAC",
       "LOCKSMITH",
+      "PEST_CONTROL",
     ])
     .describe("Case-insensitive on server; send uppercase."),
   bio: zod.string().optional(),
@@ -303,6 +304,7 @@ export const ListTechniciansResponseItem = zod
         "CHEF",
         "HVAC",
         "LOCKSMITH",
+        "PEST_CONTROL",
       ])
       .describe("Case-insensitive on server; send uppercase."),
     verified: zod.boolean(),
@@ -331,6 +333,7 @@ export const CreateTechnicianBody = zod
         "CHEF",
         "HVAC",
         "LOCKSMITH",
+        "PEST_CONTROL",
       ])
       .describe("Case-insensitive on server; send uppercase."),
     bio: zod.string().optional(),

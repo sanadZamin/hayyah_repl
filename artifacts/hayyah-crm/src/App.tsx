@@ -13,6 +13,7 @@ import Orders from "@/pages/orders";
 import Providers from "@/pages/providers";
 import TaskHistoryPage from "@/pages/task-history";
 import PricingRulesPage from "@/pages/pricing-rules";
+import Revenue from "@/pages/revenue";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -53,6 +54,7 @@ function ProtectedRouter() {
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
+      <Route path="/revenue" component={Revenue} />
       <Route path="/customers" component={Customers} />
       <Route path="/orders" component={Orders} />
       <Route path="/bookings"><Redirect to="/orders" /></Route>

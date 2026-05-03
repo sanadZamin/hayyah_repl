@@ -1,0 +1,47 @@
+:root {
+  --hayyah-blue: #0088fb;
+  --hayyah-navy: #0d2270;
+  --hayyah-mint: #53ffb0;
+  --hayyah-blue-light: #e8f4ff;
+}
+
+body {
+  background: #f6faff;
+  color: var(--hayyah-navy);
+}
+
+h1,
+h2,
+h3,
+.pf-v5-c-title {
+  color: var(--hayyah-navy);
+}
+
+.pf-v5-c-page__header,
+.pf-v5-c-page__sidebar {
+  background: #ffffff;
+}
+
+.pf-v5-c-nav__link.pf-m-current,
+.pf-v5-c-nav__link:hover {
+  color: var(--hayyah-blue);
+}
+
+.pf-v5-c-button.pf-m-primary {
+  background: var(--hayyah-blue);
+  border-color: var(--hayyah-blue);
+}
+
+.pf-v5-c-button.pf-m-primary:hover {
+  background: #007ae0;
+  border-color: #007ae0;
+}
+
+.pf-v5-c-form-control:focus {
+  border-color: var(--hayyah-blue);
+  box-shadow: 0 0 0 2px rgba(0, 136, 251, 0.2);
+}
+
+a {
+  color: var(--hayyah-blue);
+}
