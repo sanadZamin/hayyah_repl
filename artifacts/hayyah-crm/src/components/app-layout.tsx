@@ -181,15 +181,18 @@ export function AppLayout({ children, activeNav = "dashboard" }: AppLayoutProps)
               />
             </button>
 
-            <div
-              className="flex items-center gap-2 px-3 py-1.5 rounded-xl"
+            <button
+              type="button"
+              title="View landing page"
+              onClick={() => setLocation("/welcome")}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-xl border-0 cursor-pointer transition-opacity hover:opacity-90"
               style={{ background: "var(--hayyah-blue-light)" }}
             >
               <Home className="w-3.5 h-3.5" style={{ color: "var(--hayyah-blue)" }} />
               <span className="text-xs font-semibold" style={{ color: "var(--hayyah-blue)" }}>
-                Home Services CRM
+                Landing page
               </span>
-            </div>
+            </button>
 
             <button className="flex items-center gap-2">
               <div

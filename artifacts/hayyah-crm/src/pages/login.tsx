@@ -170,7 +170,17 @@ export default function Login() {
             <p className="text-xs" style={{ color: "#64748b" }}>Secured with enterprise-grade encryption. Your data is safe.</p>
           </div>
 
-          <p className="text-center text-xs mt-6" style={{ color: "#94a3b8" }}>© 2026 Hayyah. All rights reserved.</p>
+          <p className="text-center text-xs mt-6" style={{ color: "#94a3b8" }}>
+            <button
+              type="button"
+              className="font-semibold bg-transparent border-0 cursor-pointer p-0 mr-2"
+              style={{ color: "var(--hayyah-blue, #0088fb)" }}
+              onClick={() => setLocation("/welcome")}
+            >
+              Landing page
+            </button>
+            © 2026 Hayyah. All rights reserved.
+          </p>
         </div>
       </div>
     </div>

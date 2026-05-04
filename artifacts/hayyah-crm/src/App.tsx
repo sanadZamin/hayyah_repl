@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Switch, Route, Router as WouterRouter, useLocation, Redirect } from "wouter";
+import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -14,6 +14,7 @@ import Providers from "@/pages/providers";
 import TaskHistoryPage from "@/pages/task-history";
 import PricingRulesPage from "@/pages/pricing-rules";
 import Revenue from "@/pages/revenue";
+import WelcomeLanding from "@/pages/welcome";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -35,20 +36,20 @@ function ClearQueryCacheOnLogout() {
   return null;
 }
 
-function ProtectedRouter() {
+/** `/login` is matched before `ProtectedRouter`, so redirect must live here. */
+function LoginRoute() {
   const { isAuthenticated } = useAuth();
-  const [location] = useLocation();
-
-  if (!isAuthenticated && location !== "/login") {
-    return <Redirect to="/login" />;
-  }
-
-  if (isAuthenticated && location === "/login") {
+  if (isAuthenticated) {
     return <Redirect to="/" />;
   }
+  return <Login />;
+}
+
+function ProtectedRouter() {
+  const { isAuthenticated } = useAuth();
 
   if (!isAuthenticated) {
-    return <Login />;
+    return <Redirect to="/welcome" />;
   }
 
   return (
@@ -74,7 +75,8 @@ function App() {
       <TooltipProvider>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
           <Switch>
-            <Route path="/login" component={Login} />
+            <Route path="/login" component={LoginRoute} />
+            <Route path="/welcome" component={WelcomeLanding} />
             <Route component={ProtectedRouter} />
           </Switch>
         </WouterRouter>
