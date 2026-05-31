@@ -4,7 +4,6 @@ export const TOKEN_KEY = "hayyah_token";
 export const AUTH_KEY = "hayyah_auth";
 
 const CLIENT_ID = "web_client";
-const KEYCLOAK_TOKEN_PATH = "/auth/realms/hayyah/protocol/openid-connect/token";
 
 export interface StoredTokenData {
   access_token: string;
@@ -22,27 +21,17 @@ function apiPath(path: string): string {
 function resolveKeycloakTokenUrl(): string {
   const explicitUrl = import.meta.env.VITE_AUTH_TOKEN_URL?.trim();
   if (explicitUrl) return explicitUrl;
-
-  const authOrigin = normalizeViteApiBaseUrl(import.meta.env.VITE_AUTH_BASE_URL);
-  if (authOrigin) return `${authOrigin}${KEYCLOAK_TOKEN_PATH}`;
-
   return apiPath("/auth/token");
 }
 
 function resolveRefreshUrl(): string {
   const explicitRefreshUrl = import.meta.env.VITE_AUTH_REFRESH_URL?.trim();
   if (explicitRefreshUrl) return explicitRefreshUrl;
-  return resolveKeycloakTokenUrl();
+  return apiPath("/auth/refresh");
 }
 
 function usesOidcTokenEndpoint(url: string): boolean {
   return url.includes("/protocol/openid-connect/token");
-}
-
-function appendClientSecretIfPresent(params: URLSearchParams, clientSecret: string): void {
-  if (clientSecret.trim()) {
-    params.set("client_secret", clientSecret);
-  }
 }
 
 export function getTokenData(): StoredTokenData | null {
@@ -78,7 +67,6 @@ async function performRefresh(): Promise<string | null> {
     return null;
   }
 
-  const clientSecret = import.meta.env.VITE_CLIENT_SECRET ?? "";
   const refreshUrl = resolveRefreshUrl();
 
   try {
@@ -88,15 +76,11 @@ async function performRefresh(): Promise<string | null> {
         ? {
             method: "POST",
             headers: { "Content-Type": "application/x-www-form-urlencoded" },
-            body: (() => {
-              const params = new URLSearchParams({
-                client_id: CLIENT_ID,
-                grant_type: "refresh_token",
-                refresh_token: tokenData.refresh_token,
-              });
-              appendClientSecretIfPresent(params, clientSecret);
-              return params.toString();
-            })(),
+            body: new URLSearchParams({
+              client_id: CLIENT_ID,
+              grant_type: "refresh_token",
+              refresh_token: tokenData.refresh_token,
+            }).toString(),
           }
         : {
             method: "POST",
@@ -104,7 +88,6 @@ async function performRefresh(): Promise<string | null> {
             body: JSON.stringify({
               refresh_token: tokenData.refresh_token,
               client_id: CLIENT_ID,
-              ...(clientSecret.trim() ? { client_secret: clientSecret } : {}),
             }),
           },
     );
