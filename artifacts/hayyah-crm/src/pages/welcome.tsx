@@ -192,7 +192,7 @@ export default function WelcomeLanding() {
               className="text-4xl font-semibold leading-[1.15] tracking-tight text-slate-900 sm:text-5xl md:text-[3.1rem]"
               style={{ fontFamily: serif }}
             >
-              Your Home, Curated.
+              Your Home, in Good Hands.
             </h1>
             <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-slate-600 sm:text-lg">
               A calmer way to book, manage, and elevate home care — with advisors who treat your space like their own.
