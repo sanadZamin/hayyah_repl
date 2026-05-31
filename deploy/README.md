@@ -2,7 +2,8 @@
 
 ## On the server (`DEPLOY_DIR`, default `/hayyah/frontend`)
 
-1. Copy [`docker-compose.yaml`](./docker-compose.yaml) to the deploy directory.
+1. Jenkins uploads [`docker-compose.yaml`](./docker-compose.yaml) to **`/hayyah/frontend`** when **SYNC_COMPOSE_FILE** is enabled (default).  
+   Or copy it manually: `scp deploy/docker-compose.yaml root@HOST:/hayyah/frontend/docker-compose.yaml`
 2. Optional `.env`:
 
 ```bash

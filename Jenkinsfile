@@ -120,17 +120,32 @@ fi
 
 TARGET="${DEPLOY_USER}@${DEPLOY_HOST}"
 echo "Deploy web → ${TARGET}:${DEPLOY_DIR} (IMAGE_TAG=${IMAGE_TAG} service=${COMPOSE_SERVICE})"
+echo "SYNC_COMPOSE_FILE=${SYNC_COMPOSE_FILE:-<unset>} (upload unless false)"
 
 "${SSH[@]}" "$TARGET" "mkdir -p '${DEPLOY_DIR}'"
 
-if [ "${SYNC_COMPOSE_FILE}" = "true" ]; then
-  COMPOSE_SRC="${WORKSPACE:-.}/deploy/docker-compose.yaml"
+should_sync=1
+case "${SYNC_COMPOSE_FILE:-true}" in
+  false|False|FALSE|0|no|No) should_sync=0 ;;
+esac
+
+if [ "$should_sync" -eq 1 ]; then
+  COMPOSE_SRC="${WORKSPACE:-$(pwd)}/deploy/docker-compose.yaml"
+  echo "Agent workspace: ${WORKSPACE:-<unset>} pwd=$(pwd)"
+  ls -la deploy/ 2>/dev/null || ls -la "${WORKSPACE:-.}/deploy/" 2>/dev/null || true
   if [ ! -f "$COMPOSE_SRC" ]; then
-    echo "ERROR: missing $COMPOSE_SRC — cannot SYNC_COMPOSE_FILE"
+    echo "ERROR: missing $COMPOSE_SRC on Jenkins agent (is deploy/ committed on this branch?)"
     exit 1
   fi
-  echo "Uploading compose → ${DEPLOY_DIR}/${COMPOSE_FILE}"
-  "${SCP[@]}" "$COMPOSE_SRC" "${TARGET}:${DEPLOY_DIR}/${COMPOSE_FILE}"
+  REMOTE_COMPOSE="${DEPLOY_DIR}/${COMPOSE_FILE}"
+  echo "Uploading $COMPOSE_SRC → ${TARGET}:${REMOTE_COMPOSE}"
+  "${SCP[@]}" "$COMPOSE_SRC" "${TARGET}:${REMOTE_COMPOSE}"
+  "${SSH[@]}" "$TARGET" "test -f '${REMOTE_COMPOSE}' && ls -la '${REMOTE_COMPOSE}'" || {
+    echo "ERROR: compose file missing on server after scp: ${REMOTE_COMPOSE}"
+    exit 1
+  }
+else
+  echo "WARN: SYNC_COMPOSE_FILE=false — expecting ${COMPOSE_FILE} already on the server"
 fi
 
 "${SSH[@]}" "$TARGET" env \
@@ -155,9 +170,20 @@ else
 fi
 
 if [ ! -f "$COMPOSE_FILE" ]; then
-  echo "ERROR: $COMPOSE_FILE not found in $DEPLOY_DIR"
-  exit 1
+  if [ -f docker-compose.yml ] && [ "$COMPOSE_FILE" != docker-compose.yml ]; then
+    echo "WARN: $COMPOSE_FILE missing; using docker-compose.yml"
+    COMPOSE_FILE=docker-compose.yml
+  elif [ -f docker-compose.yaml ] && [ "$COMPOSE_FILE" != docker-compose.yaml ]; then
+    echo "WARN: $COMPOSE_FILE missing; using docker-compose.yaml"
+    COMPOSE_FILE=docker-compose.yaml
+  else
+    echo "ERROR: compose file not found in $(pwd)"
+    echo "Expected: $COMPOSE_FILE (enable SYNC_COMPOSE_FILE or copy deploy/docker-compose.yaml here)"
+    ls -la
+    exit 1
+  fi
 fi
+echo "Using compose file: $(pwd)/$COMPOSE_FILE"
 
 SERVICES=$($COMPOSE -f "$COMPOSE_FILE" config --services 2>/dev/null || true)
 echo "Compose services: ${SERVICES:-<none>}"
