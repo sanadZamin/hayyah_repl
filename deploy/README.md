@@ -18,7 +18,7 @@ image: ${DOCKER_REPO}:${IMAGE_TAG}
 
 1. Credential **`dockerhub-deploy`** — Docker Hub username + access token.
 2. SSH — `/var/jenkins_home/.ssh/id_deploy` or **`DEPLOY_SSH_CREDENTIALS_ID`**.
-3. Bind Keycloak **`web_client`** secret as Jenkins **Secret text**. Set job parameter **`KEYCLOAK_CLIENT_SECRET_CRED_ID`** to that credential’s ID (default `hayyah-keycloak-client-secret`). The pipeline passes it as **`VITE_CLIENT_SECRET`** at **docker build** only (never in git or deploy compose).
+3. Bind Keycloak **`web_client`** secret as Jenkins **Secret text** (`KEYCLOAK_CLIENT_SECRET_CRED_ID`). Login uses **`/auth/realms/hayyah/protocol/openid-connect/token`** (Keycloak via nginx), with **`client_secret`** baked at build time.
 4. Pipeline builds **`Dockerfile.web`**, pushes **`DOCKER_REPO`**, then on the server: `compose pull` + `up` for **COMPOSE_SERVICE**.
 
 ## Image tags

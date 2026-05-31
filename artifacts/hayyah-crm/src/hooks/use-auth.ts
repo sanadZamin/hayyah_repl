@@ -13,12 +13,6 @@ const CLIENT_SECRET = import.meta.env.VITE_CLIENT_SECRET ?? "";
 
 function resolveTokenUrl(): string {
   const explicitUrl = import.meta.env.VITE_AUTH_TOKEN_URL?.trim();
-
-  // Production image: no secret in JS — must not call Keycloak directly.
-  if (!CLIENT_SECRET.trim()) {
-    return "/api/auth/token";
-  }
-
   if (explicitUrl) return explicitUrl;
 
   const authOrigin = normalizeViteApiBaseUrl(import.meta.env.VITE_AUTH_BASE_URL);

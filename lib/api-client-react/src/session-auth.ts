@@ -14,11 +14,6 @@ export interface StoredTokenData {
 }
 
 function resolveKeycloakTokenUrl(): string {
-  const clientSecret = import.meta.env.VITE_CLIENT_SECRET ?? "";
-  if (!clientSecret.trim()) {
-    return "/api/auth/token";
-  }
-
   const explicitUrl = import.meta.env.VITE_AUTH_TOKEN_URL?.trim();
   if (explicitUrl) return explicitUrl;
 
@@ -29,11 +24,6 @@ function resolveKeycloakTokenUrl(): string {
 }
 
 function resolveRefreshUrl(): string {
-  const clientSecret = import.meta.env.VITE_CLIENT_SECRET ?? "";
-  if (!clientSecret.trim()) {
-    return "/api/auth/refresh";
-  }
-
   const explicitRefreshUrl = import.meta.env.VITE_AUTH_REFRESH_URL?.trim();
   if (explicitRefreshUrl) return explicitRefreshUrl;
 

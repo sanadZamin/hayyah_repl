@@ -7,7 +7,7 @@
  * Server: use the existing compose file in DEPLOY_DIR (not uploaded from git).
  * That file must reference ${IMAGE_TAG} and ${DOCKER_REPO} for the web image.
  *
- * Credentials: KEYCLOAK_CLIENT_SECRET_CRED_ID — Jenkins Secret text → VITE_CLIENT_SECRET build-arg.
+ * Credentials: KEYCLOAK_CLIENT_SECRET_CRED_ID — Secret text → VITE_CLIENT_SECRET; auth URL → Keycloak /auth/realms/...
  */
 pipeline {
     agent any
@@ -83,8 +83,9 @@ fi
 echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USER" --password-stdin
 docker buildx inspect --bootstrap >/dev/null 2>&1 || docker buildx create --use --name jenkins-builder
 
-TOKEN_URL="${VITE_AUTH_TOKEN_URL:-/api/auth/token}"
-REFRESH_URL="${VITE_AUTH_REFRESH_URL:-/api/auth/refresh}"
+# Relative path: nginx on the web host proxies /auth/ → hayyah.me (see nginx.conf).
+TOKEN_URL="${VITE_AUTH_TOKEN_URL:-/auth/realms/hayyah/protocol/openid-connect/token}"
+REFRESH_URL="${VITE_AUTH_REFRESH_URL:-/auth/realms/hayyah/protocol/openid-connect/token}"
 
 tags="-t ${IMAGE}"
 [ "${PUSH_LATEST}" = "true" ] && tags="$tags -t ${DOCKER_REPO}:latest"
