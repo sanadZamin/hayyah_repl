@@ -4,8 +4,8 @@
  * Credentials: dockerhub-deploy (Docker Hub username + token/password)
  * Deploy key: mount /var/jenkins_home/.ssh/id_deploy or set DEPLOY_SSH_CREDENTIALS_ID
  *
- * Server: compose file in DEPLOY_DIR must use ${IMAGE_TAG} and ${DOCKER_REPO}
- * (see deploy/docker-compose.yaml).
+ * Server: use the existing compose file in DEPLOY_DIR (not uploaded from git).
+ * That file must reference ${IMAGE_TAG} and ${DOCKER_REPO} for the web image.
  *
  * Bind Secret text env var VITE_CLIENT_SECRET on the Jenkins job for web builds.
  */
@@ -25,8 +25,7 @@ pipeline {
         string(name: 'DEPLOY_USER', defaultValue: 'root', description: 'SSH user')
         string(name: 'DEPLOY_DIR', defaultValue: '/hayyah/frontend', description: 'Directory with docker-compose on host')
         string(name: 'COMPOSE_FILE', defaultValue: 'docker-compose.yaml', description: 'Compose filename in DEPLOY_DIR')
-        string(name: 'COMPOSE_SERVICE', defaultValue: 'web', description: 'Compose service name to pull/up (must exist in compose file)')
-        booleanParam(name: 'SYNC_COMPOSE_FILE', defaultValue: true, description: 'Upload deploy/docker-compose.yaml to the server before deploy')
+        string(name: 'COMPOSE_SERVICE', defaultValue: 'web', description: 'Compose service name to pull/up (must exist in server compose file)')
         string(name: 'DEPLOY_SSH_CREDENTIALS_ID', defaultValue: '', description: 'Optional Jenkins SSH credential ID')
         string(name: 'DEPLOY_SSH_KEY', defaultValue: '/var/jenkins_home/.ssh/id_deploy', description: 'SSH private key file (if no credential ID)')
         string(name: 'VITE_API_BASE_URL', defaultValue: 'https://hayyah.me', description: 'Web build: API origin')
@@ -45,7 +44,6 @@ pipeline {
         DEPLOY_DIR = "${params.DEPLOY_DIR?.trim() ?: '/hayyah/frontend'}"
         COMPOSE_FILE = "${params.COMPOSE_FILE?.trim() ?: 'docker-compose.yaml'}"
         COMPOSE_SERVICE = "${params.COMPOSE_SERVICE?.trim() ?: 'web'}"
-        SYNC_COMPOSE_FILE = "${params.SYNC_COMPOSE_FILE}"
         DEPLOY_SSH_KEY = "${params.DEPLOY_SSH_KEY}"
         VITE_API_BASE_URL = "${params.VITE_API_BASE_URL}"
         VITE_AUTH_BASE_URL = "${params.VITE_AUTH_BASE_URL}"
@@ -106,13 +104,11 @@ echo "Push complete."
 set -euo pipefail
 
 SSH=(ssh -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=15)
-SCP=(scp -o StrictHostKeyChecking=no -o BatchMode=yes)
 if [ -n "${SSH_AUTH_SOCK:-}" ] && ssh-add -l >/dev/null 2>&1; then
   echo "SSH: using agent"
 elif [ -f "${DEPLOY_SSH_KEY}" ]; then
   echo "SSH: using key ${DEPLOY_SSH_KEY}"
   SSH+=(-i "${DEPLOY_SSH_KEY}")
-  SCP+=(-i "${DEPLOY_SSH_KEY}")
 else
   echo "ERROR: no SSH key at ${DEPLOY_SSH_KEY} and no ssh-agent key"
   exit 1
@@ -120,33 +116,7 @@ fi
 
 TARGET="${DEPLOY_USER}@${DEPLOY_HOST}"
 echo "Deploy web → ${TARGET}:${DEPLOY_DIR} (IMAGE_TAG=${IMAGE_TAG} service=${COMPOSE_SERVICE})"
-echo "SYNC_COMPOSE_FILE=${SYNC_COMPOSE_FILE:-<unset>} (upload unless false)"
-
-"${SSH[@]}" "$TARGET" "mkdir -p '${DEPLOY_DIR}'"
-
-should_sync=1
-case "${SYNC_COMPOSE_FILE:-true}" in
-  false|False|FALSE|0|no|No) should_sync=0 ;;
-esac
-
-if [ "$should_sync" -eq 1 ]; then
-  COMPOSE_SRC="${WORKSPACE:-$(pwd)}/deploy/docker-compose.yaml"
-  echo "Agent workspace: ${WORKSPACE:-<unset>} pwd=$(pwd)"
-  ls -la deploy/ 2>/dev/null || ls -la "${WORKSPACE:-.}/deploy/" 2>/dev/null || true
-  if [ ! -f "$COMPOSE_SRC" ]; then
-    echo "ERROR: missing $COMPOSE_SRC on Jenkins agent (is deploy/ committed on this branch?)"
-    exit 1
-  fi
-  REMOTE_COMPOSE="${DEPLOY_DIR}/${COMPOSE_FILE}"
-  echo "Uploading $COMPOSE_SRC → ${TARGET}:${REMOTE_COMPOSE}"
-  "${SCP[@]}" "$COMPOSE_SRC" "${TARGET}:${REMOTE_COMPOSE}"
-  "${SSH[@]}" "$TARGET" "test -f '${REMOTE_COMPOSE}' && ls -la '${REMOTE_COMPOSE}'" || {
-    echo "ERROR: compose file missing on server after scp: ${REMOTE_COMPOSE}"
-    exit 1
-  }
-else
-  echo "WARN: SYNC_COMPOSE_FILE=false — expecting ${COMPOSE_FILE} already on the server"
-fi
+echo "Using existing compose on server (not uploaded from Jenkins)"
 
 "${SSH[@]}" "$TARGET" env \
   DEPLOY_DIR="${DEPLOY_DIR}" \
@@ -178,12 +148,12 @@ if [ ! -f "$COMPOSE_FILE" ]; then
     COMPOSE_FILE=docker-compose.yaml
   else
     echo "ERROR: compose file not found in $(pwd)"
-    echo "Expected: $COMPOSE_FILE (enable SYNC_COMPOSE_FILE or copy deploy/docker-compose.yaml here)"
+    echo "Expected: $COMPOSE_FILE — maintain this file on the server under ${DEPLOY_DIR}"
     ls -la
     exit 1
   fi
 fi
-echo "Using compose file: $(pwd)/$COMPOSE_FILE"
+echo "Using server compose file: $(pwd)/$COMPOSE_FILE"
 
 SERVICES=$($COMPOSE -f "$COMPOSE_FILE" config --services 2>/dev/null || true)
 echo "Compose services: ${SERVICES:-<none>}"
@@ -194,7 +164,7 @@ if echo "$SERVICES" | grep -Fxq "$COMPOSE_SERVICE"; then
   $COMPOSE -f "$COMPOSE_FILE" up -d --remove-orphans --force-recreate --no-deps "$COMPOSE_SERVICE"
 else
   echo "ERROR: service '$COMPOSE_SERVICE' not in $COMPOSE_FILE"
-  echo "Set Jenkins parameter COMPOSE_SERVICE to one of the names above, or enable SYNC_COMPOSE_FILE."
+  echo "Set Jenkins parameter COMPOSE_SERVICE to one of the service names listed above."
   exit 1
 fi
 $COMPOSE -f "$COMPOSE_FILE" ps

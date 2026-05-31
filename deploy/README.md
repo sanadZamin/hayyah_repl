@@ -2,32 +2,26 @@
 
 ## On the server (`DEPLOY_DIR`, default `/hayyah/frontend`)
 
-1. Jenkins uploads [`docker-compose.yaml`](./docker-compose.yaml) to **`/hayyah/frontend`** when **SYNC_COMPOSE_FILE** is enabled (default).  
-   Or copy it manually: `scp deploy/docker-compose.yaml root@HOST:/hayyah/frontend/docker-compose.yaml`
-2. Optional `.env`:
+1. Keep your own **`docker-compose.yaml`** (or `.yml`) in that directory — **Jenkins does not upload or overwrite it.**
+2. The web service image line should use env vars Jenkins exports on deploy:
 
-```bash
-API_UPSTREAM=https://hayyah.me
+```yaml
+image: ${DOCKER_REPO}:${IMAGE_TAG}
 ```
 
-3. Ensure Docker Compose v2 is installed. The app is published on **host port 88** (container nginx listens on 80).
+3. Optional `.env` (e.g. `API_UPSTREAM`, secrets).
+4. Set Jenkins **COMPOSE_FILE** / **COMPOSE_SERVICE** to match your file (defaults: `docker-compose.yaml`, service `web`).
+
+[`deploy/docker-compose.yaml`](./docker-compose.yaml) in git is a **reference only** for local docs — not copied to the server by the pipeline.
 
 ## Jenkins
 
 1. Credential **`dockerhub-deploy`** — Docker Hub username + access token.
-2. SSH — `/var/jenkins_home/.ssh/id_deploy` or parameter **`DEPLOY_SSH_CREDENTIALS_ID`**.
-3. Bind **`VITE_CLIENT_SECRET`** (Secret text) as an environment variable on the pipeline job.
-4. Run root **`Jenkinsfile`** — builds **`Dockerfile.web`**, pushes **`DOCKER_REPO`** (default `altshiftcreative/hayyah-web`), deploys the **`web`** service.
-5. Leave **SYNC_COMPOSE_FILE** enabled (default) so Jenkins uploads this folder’s `docker-compose.yaml` to the server (fixes “No such service: web” when the host file is outdated).
-6. If you manage compose manually, set **COMPOSE_SERVICE** to match your service name (e.g. `frontend`).
+2. SSH — `/var/jenkins_home/.ssh/id_deploy` or **`DEPLOY_SSH_CREDENTIALS_ID`**.
+3. Bind **`VITE_CLIENT_SECRET`** on the job for web image builds.
+4. Pipeline builds **`Dockerfile.web`**, pushes **`DOCKER_REPO`**, then on the server: `compose pull` + `up` for **COMPOSE_SERVICE**.
 
 ## Image tags
 
 - `IMAGE_TAG` = Jenkins `BUILD_NUMBER`
 - Optional `:latest` when **PUSH_LATEST** is true
-
-Compose on the host:
-
-```yaml
-image: ${DOCKER_REPO}:${IMAGE_TAG}
-```
