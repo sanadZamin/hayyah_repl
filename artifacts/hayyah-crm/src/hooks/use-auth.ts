@@ -1,21 +1,25 @@
 import { useState, useEffect, useMemo } from "react";
-import { apiUrl } from "@/lib/api-url";
+import { normalizeViteApiBaseUrl } from "@workspace/api-client-react";
 
 const AUTH_KEY = "hayyah_auth";
 const TOKEN_KEY = "hayyah_token";
 
+/** Keycloak password + refresh token endpoint (realm hayyah). */
+export const KEYCLOAK_TOKEN_PATH = "/auth/realms/hayyah/protocol/openid-connect/token";
+const DEFAULT_KEYCLOAK_ORIGIN = "https://hayyah.me";
+
 const TOKEN_URL = resolveTokenUrl();
 const CLIENT_ID = "web_client";
+const CLIENT_SECRET = import.meta.env.VITE_CLIENT_SECRET ?? "";
 
-/**
- * Login should hit `/api/auth/token` (same-origin) so the server adds `client_secret`.
- * Calling Keycloak directly from the browser with a baked-in secret causes
- * `unauthorized_client` when the secret is missing, wrong, or the client is public.
- */
 function resolveTokenUrl(): string {
   const explicitUrl = import.meta.env.VITE_AUTH_TOKEN_URL?.trim();
   if (explicitUrl) return explicitUrl;
-  return apiUrl("/auth/token");
+
+  const authOrigin = normalizeViteApiBaseUrl(import.meta.env.VITE_AUTH_BASE_URL);
+  if (authOrigin) return `${authOrigin}${KEYCLOAK_TOKEN_PATH}`;
+
+  return `${DEFAULT_KEYCLOAK_ORIGIN}${KEYCLOAK_TOKEN_PATH}`;
 }
 
 export interface AuthUser {
@@ -95,6 +99,9 @@ export function useAuth() {
       username,
       password,
     });
+    if (CLIENT_SECRET.trim()) {
+      body.set("client_secret", CLIENT_SECRET);
+    }
 
     try {
       const res = await fetch(TOKEN_URL, {

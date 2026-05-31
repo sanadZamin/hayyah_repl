@@ -32,7 +32,7 @@ pipeline {
         string(name: 'VITE_AUTH_BASE_URL', defaultValue: 'https://hayyah.me', description: 'Web build: auth origin')
         string(name: 'VITE_AUTH_TOKEN_URL', defaultValue: '', description: 'Web build: token URL (empty = derive from auth base)')
         string(name: 'VITE_AUTH_REFRESH_URL', defaultValue: '', description: 'Web build: refresh URL (optional)')
-        
+
     }
 
     environment {
@@ -70,14 +70,15 @@ command -v docker >/dev/null || { echo "ERROR: docker not in PATH"; exit 127; }
 echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USER" --password-stdin
 docker buildx inspect --bootstrap >/dev/null 2>&1 || docker buildx create --use --name jenkins-builder
 
-# Same-origin login via /api/auth/token (nginx → API_UPSTREAM). Do not bake client_secret into the bundle.
-TOKEN_URL="${VITE_AUTH_TOKEN_URL:-/api/auth/token}"
-REFRESH_URL="${VITE_AUTH_REFRESH_URL:-/api/auth/token}"
+# Keycloak OIDC token URL (realm hayyah). Relative path works with nginx /auth proxy on the deploy host.
+TOKEN_URL="${VITE_AUTH_TOKEN_URL:-/auth/realms/hayyah/protocol/openid-connect/token}"
+REFRESH_URL="${VITE_AUTH_REFRESH_URL:-/auth/realms/hayyah/protocol/openid-connect/token}"
 
 tags="-t ${IMAGE}"
 [ "${PUSH_LATEST}" = "true" ] && tags="$tags -t ${DOCKER_REPO}:latest"
 echo "Building Hayyah web → ${IMAGE}"
 docker buildx build --platform linux/amd64 $tags -f Dockerfile.web --push . \
+  --build-arg VITE_CLIENT_SECRET="${VITE_CLIENT_SECRET:-}" \
   --build-arg VITE_API_BASE_URL="${VITE_API_BASE_URL:-}" \
   --build-arg VITE_AUTH_BASE_URL="${VITE_AUTH_BASE_URL:-}" \
   --build-arg VITE_AUTH_TOKEN_URL="$TOKEN_URL" \
