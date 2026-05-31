@@ -67,13 +67,15 @@ command -v docker >/dev/null || { echo "ERROR: docker not in PATH"; exit 127; }
 echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USER" --password-stdin
 docker buildx inspect --bootstrap >/dev/null 2>&1 || docker buildx create --use --name jenkins-builder
 
-TOKEN_URL="${VITE_AUTH_TOKEN_URL}"
+API_BASE="${VITE_API_BASE_URL:-https://hayyah.me}"
+AUTH_BASE="${VITE_AUTH_BASE_URL:-https://hayyah.me}"
+TOKEN_URL="${VITE_AUTH_TOKEN_URL:-}"
 if [ -z "$TOKEN_URL" ]; then
-  TOKEN_URL="${VITE_AUTH_BASE_URL%/}/auth/realms/hayyah/protocol/openid-connect/token"
+  TOKEN_URL="${AUTH_BASE%/}/auth/realms/hayyah/protocol/openid-connect/token"
 fi
-REFRESH_URL="${VITE_AUTH_REFRESH_URL}"
+REFRESH_URL="${VITE_AUTH_REFRESH_URL:-}"
 if [ -z "$REFRESH_URL" ]; then
-  REFRESH_URL="${VITE_AUTH_BASE_URL%/}/auth/realms/hayyah/protocol/openid-connect/token"
+  REFRESH_URL="${AUTH_BASE%/}/auth/realms/hayyah/protocol/openid-connect/token"
 fi
 
 tags="-t ${IMAGE}"
@@ -81,8 +83,8 @@ tags="-t ${IMAGE}"
 echo "Building Hayyah web → ${IMAGE}"
 docker buildx build --platform linux/amd64 $tags -f Dockerfile.web --push . \
   --build-arg VITE_CLIENT_SECRET="${VITE_CLIENT_SECRET:-}" \
-  --build-arg VITE_API_BASE_URL="$VITE_API_BASE_URL" \
-  --build-arg VITE_AUTH_BASE_URL="$VITE_AUTH_BASE_URL" \
+  --build-arg VITE_API_BASE_URL="$API_BASE" \
+  --build-arg VITE_AUTH_BASE_URL="$AUTH_BASE" \
   --build-arg VITE_AUTH_TOKEN_URL="$TOKEN_URL" \
   --build-arg VITE_AUTH_REFRESH_URL="$REFRESH_URL"
 echo "Push complete."
