@@ -141,10 +141,13 @@ fi
   COMPOSE_SERVICE="${COMPOSE_SERVICE}" \
   bash -s <<'REMOTE'
 set -e
-cd "$DEPLOY_DIR"
+echo "cd ${DEPLOY_DIR}"
+cd "$DEPLOY_DIR" || { echo "ERROR: cannot cd to ${DEPLOY_DIR}"; exit 1; }
+echo "Deploy directory: $(pwd)"
+ls -la
 export IMAGE_TAG="$IMAGE_TAG"
 export DOCKER_REPO="$DOCKER_REPO"
-echo "On host: pwd=$(pwd) IMAGE_TAG=${IMAGE_TAG} DOCKER_REPO=${DOCKER_REPO}"
+echo "IMAGE_TAG=${IMAGE_TAG} DOCKER_REPO=${DOCKER_REPO} COMPOSE_FILE=${COMPOSE_FILE}"
 if docker compose version >/dev/null 2>&1; then
   COMPOSE="docker compose"
 else
