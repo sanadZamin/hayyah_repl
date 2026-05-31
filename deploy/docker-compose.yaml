@@ -1,0 +1,13 @@
+# Web-only production compose on the deploy host.
+# Jenkins sets IMAGE_TAG and DOCKER_REPO before `docker compose pull && up -d`.
+# Optional: API_UPSTREAM in .env if nginx should proxy to your API host.
+
+services:
+  web:
+    image: ${DOCKER_REPO}:${IMAGE_TAG}
+    platform: linux/amd64
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    environment:
+      API_UPSTREAM: ${API_UPSTREAM:-https://hayyah.me}
