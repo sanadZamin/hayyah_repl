@@ -8,6 +8,6 @@ services:
     platform: linux/amd64
     restart: unless-stopped
     ports:
-      - "80:80"
+      - "88:80"
     environment:
       API_UPSTREAM: ${API_UPSTREAM:-https://hayyah.me}

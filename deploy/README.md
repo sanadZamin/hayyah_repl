@@ -9,7 +9,7 @@
 API_UPSTREAM=https://hayyah.me
 ```
 
-3. Ensure Docker Compose v2 is installed.
+3. Ensure Docker Compose v2 is installed. The app is published on **host port 88** (container nginx listens on 80).
 
 ## Jenkins
 
