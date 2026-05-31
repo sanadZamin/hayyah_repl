@@ -7,7 +7,7 @@
  * Server: use the existing compose file in DEPLOY_DIR (not uploaded from git).
  * That file must reference ${IMAGE_TAG} and ${DOCKER_REPO} for the web image.
  *
- * Bind Secret text env var VITE_CLIENT_SECRET on the Jenkins job for web builds.
+ * Credentials: KEYCLOAK_CLIENT_SECRET_CRED_ID — Jenkins Secret text → VITE_CLIENT_SECRET build-arg.
  */
 pipeline {
     agent any
@@ -32,6 +32,7 @@ pipeline {
         string(name: 'VITE_AUTH_BASE_URL', defaultValue: 'https://hayyah.me', description: 'Web build: auth origin')
         string(name: 'VITE_AUTH_TOKEN_URL', defaultValue: '', description: 'Web build: token URL (empty = derive from auth base)')
         string(name: 'VITE_AUTH_REFRESH_URL', defaultValue: '', description: 'Web build: refresh URL (optional)')
+        string(name: 'KEYCLOAK_CLIENT_SECRET_CRED_ID', defaultValue: 'hayyah-keycloak-client-secret', description: 'Jenkins Secret text credential ID (web_client secret for VITE_CLIENT_SECRET build-arg)')
 
     }
 
@@ -59,32 +60,44 @@ pipeline {
 
         stage('Build & Push Web') {
             steps {
-                withCredentials([usernamePassword(
-                    credentialsId: 'dockerhub-deploy',
-                    usernameVariable: 'DOCKERHUB_USER',
-                    passwordVariable: 'DOCKERHUB_TOKEN'
-                )]) {
-                    sh '''#!/usr/bin/env bash
+                script {
+                    def secretCredId = params.KEYCLOAK_CLIENT_SECRET_CRED_ID?.trim() ?: 'hayyah-keycloak-client-secret'
+                    withCredentials([
+                        usernamePassword(
+                            credentialsId: 'dockerhub-deploy',
+                            usernameVariable: 'DOCKERHUB_USER',
+                            passwordVariable: 'DOCKERHUB_TOKEN'
+                        ),
+                        string(
+                            credentialsId: secretCredId,
+                            variable: 'VITE_CLIENT_SECRET'
+                        ),
+                    ]) {
+                        sh '''#!/usr/bin/env bash
 set -euo pipefail
 command -v docker >/dev/null || { echo "ERROR: docker not in PATH"; exit 127; }
+if [ -z "${VITE_CLIENT_SECRET:-}" ]; then
+  echo "ERROR: VITE_CLIENT_SECRET is empty — check Jenkins Secret text credential binding"
+  exit 1
+fi
 echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USER" --password-stdin
 docker buildx inspect --bootstrap >/dev/null 2>&1 || docker buildx create --use --name jenkins-builder
 
-# Keycloak OIDC token URL (realm hayyah). Relative path works with nginx /auth proxy on the deploy host.
-TOKEN_URL="${VITE_AUTH_TOKEN_URL:-/auth/realms/hayyah/protocol/openid-connect/token}"
-REFRESH_URL="${VITE_AUTH_REFRESH_URL:-/auth/realms/hayyah/protocol/openid-connect/token}"
+TOKEN_URL="${VITE_AUTH_TOKEN_URL:-/api/auth/token}"
+REFRESH_URL="${VITE_AUTH_REFRESH_URL:-/api/auth/refresh}"
 
 tags="-t ${IMAGE}"
 [ "${PUSH_LATEST}" = "true" ] && tags="$tags -t ${DOCKER_REPO}:latest"
-echo "Building Hayyah web → ${IMAGE}"
+echo "Building Hayyah web → ${IMAGE} (client_secret from Jenkins credential, not logged)"
 docker buildx build --platform linux/amd64 $tags -f Dockerfile.web --push . \
-  --build-arg VITE_CLIENT_SECRET="${VITE_CLIENT_SECRET:-}" \
+  --build-arg VITE_CLIENT_SECRET="$VITE_CLIENT_SECRET" \
   --build-arg VITE_API_BASE_URL="${VITE_API_BASE_URL:-}" \
   --build-arg VITE_AUTH_BASE_URL="${VITE_AUTH_BASE_URL:-}" \
   --build-arg VITE_AUTH_TOKEN_URL="$TOKEN_URL" \
   --build-arg VITE_AUTH_REFRESH_URL="$REFRESH_URL"
 echo "Push complete."
 '''
+                    }
                 }
             }
         }
@@ -180,7 +193,7 @@ REMOTE
             echo "Deployed ${IMAGE} (web) to ${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_DIR}"
         }
         failure {
-            echo 'Failed — check dockerhub-deploy, SSH key, DEPLOY_DIR, compose file, and VITE_CLIENT_SECRET.'
+            echo 'Failed — check dockerhub-deploy, KEYCLOAK_CLIENT_SECRET_CRED_ID, SSH key, DEPLOY_DIR, and compose file.'
         }
     }
 }

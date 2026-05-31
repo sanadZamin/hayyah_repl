@@ -34,8 +34,27 @@ const apiProxy = (apiTarget: string, authTarget: string): Record<string, ProxyOp
   };
 };
 
+function resolveClientSecretForApp(env: Record<string, string>): string {
+  return (
+    env.VITE_CLIENT_SECRET?.trim() ||
+    process.env.VITE_CLIENT_SECRET?.trim() ||
+    env.KEYCLOAK_CLIENT_SECRET?.trim() ||
+    process.env.KEYCLOAK_CLIENT_SECRET?.trim() ||
+    ""
+  );
+}
+
 export default defineConfig(async ({ mode }) => {
   const env = loadEnv(mode, workspaceRoot);
+  const viteClientSecret = resolveClientSecretForApp(env);
+
+  if (mode === "development" && !viteClientSecret) {
+    console.warn(
+      "[vite] VITE_CLIENT_SECRET is empty — login will not send client_secret. " +
+        "Add VITE_CLIENT_SECRET=... to a root .env file (see .env.example) and restart dev.",
+    );
+  }
+
   // Default to deployed API so dev works without a local backend on :8080 (avoids proxy → localhost:8080 → 404 on /api/v1/*).
   const apiProxyTarget =
     env.VITE_API_PROXY_TARGET ??
@@ -58,6 +77,9 @@ export default defineConfig(async ({ mode }) => {
 
   return {
     base,
+    define: {
+      "import.meta.env.VITE_CLIENT_SECRET": JSON.stringify(viteClientSecret),
+    },
     plugins: [
       react(),
       tailwindcss(),

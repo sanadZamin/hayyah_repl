@@ -13,14 +13,12 @@ export interface StoredTokenData {
   expires_in?: number;
 }
 
-function apiPath(path: string): string {
-  const p = path.startsWith("/") ? path : `/${path}`;
-  const origin = normalizeViteApiBaseUrl(import.meta.env.VITE_API_BASE_URL);
-  if (origin) return `${origin}/api${p}`;
-  return `/api${p}`;
-}
-
 function resolveKeycloakTokenUrl(): string {
+  const clientSecret = import.meta.env.VITE_CLIENT_SECRET ?? "";
+  if (!clientSecret.trim()) {
+    return "/api/auth/token";
+  }
+
   const explicitUrl = import.meta.env.VITE_AUTH_TOKEN_URL?.trim();
   if (explicitUrl) return explicitUrl;
 
@@ -31,8 +29,14 @@ function resolveKeycloakTokenUrl(): string {
 }
 
 function resolveRefreshUrl(): string {
+  const clientSecret = import.meta.env.VITE_CLIENT_SECRET ?? "";
+  if (!clientSecret.trim()) {
+    return "/api/auth/refresh";
+  }
+
   const explicitRefreshUrl = import.meta.env.VITE_AUTH_REFRESH_URL?.trim();
   if (explicitRefreshUrl) return explicitRefreshUrl;
+
   return resolveKeycloakTokenUrl();
 }
 

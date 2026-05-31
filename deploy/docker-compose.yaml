@@ -1,5 +1,9 @@
 # Web-only production compose on the deploy host.
 # Jenkins sets IMAGE_TAG and DOCKER_REPO before `docker compose pull && up -d`.
+# This file only runs a pre-built image (pull + up) — it does not build the app.
+# VITE_CLIENT_SECRET in environment here has NO effect: Vite vars are compiled at
+# image build time on Jenkins, not read by nginx at runtime. Login uses /api/auth/token
+# so the API injects KEYCLOAK_CLIENT_SECRET server-side.
 # Optional: API_UPSTREAM in .env if nginx should proxy to your API host.
 #
 # `name` + `container_name` keep one stack/container identity across deploys

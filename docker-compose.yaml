@@ -17,6 +17,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.web
+      # VITE_* here are BUILD ARGS only — baked into JS during `docker compose build`.
+      # They are NOT read at container runtime (final image is nginx + static files).
+      # Set VITE_CLIENT_SECRET in a `.env` next to this file when building locally.
       args:
         VITE_CLIENT_SECRET: ${VITE_CLIENT_SECRET}
         VITE_AUTH_TOKEN_URL: ${VITE_AUTH_TOKEN_URL}
