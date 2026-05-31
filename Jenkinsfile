@@ -32,6 +32,7 @@ pipeline {
         string(name: 'VITE_AUTH_BASE_URL', defaultValue: 'https://hayyah.me', description: 'Web build: auth origin')
         string(name: 'VITE_AUTH_TOKEN_URL', defaultValue: '', description: 'Web build: token URL (empty = derive from auth base)')
         string(name: 'VITE_AUTH_REFRESH_URL', defaultValue: '', description: 'Web build: refresh URL (optional)')
+        
     }
 
     environment {
