@@ -23,8 +23,10 @@ pipeline {
         booleanParam(name: 'PUSH_LATEST', defaultValue: true, description: 'Also push :latest')
         string(name: 'DEPLOY_HOST', defaultValue: '149.102.140.178', description: 'Deploy host')
         string(name: 'DEPLOY_USER', defaultValue: 'root', description: 'SSH user')
-        string(name: 'DEPLOY_DIR', defaultValue: '/hayyah', description: 'Directory with docker-compose on host')
+        string(name: 'DEPLOY_DIR', defaultValue: '/hayyah.frontend', description: 'Directory with docker-compose on host')
         string(name: 'COMPOSE_FILE', defaultValue: 'docker-compose.yaml', description: 'Compose filename in DEPLOY_DIR')
+        string(name: 'COMPOSE_SERVICE', defaultValue: 'web', description: 'Compose service name to pull/up (must exist in compose file)')
+        booleanParam(name: 'SYNC_COMPOSE_FILE', defaultValue: true, description: 'Upload deploy/docker-compose.yaml to the server before deploy')
         string(name: 'DEPLOY_SSH_CREDENTIALS_ID', defaultValue: '', description: 'Optional Jenkins SSH credential ID')
         string(name: 'DEPLOY_SSH_KEY', defaultValue: '/var/jenkins_home/.ssh/id_deploy', description: 'SSH private key file (if no credential ID)')
         string(name: 'VITE_API_BASE_URL', defaultValue: 'https://hayyah.me', description: 'Web build: API origin')
@@ -42,6 +44,8 @@ pipeline {
         DEPLOY_USER = "${params.DEPLOY_USER}"
         DEPLOY_DIR = "${params.DEPLOY_DIR?.trim() ?: '/hayyah'}"
         COMPOSE_FILE = "${params.COMPOSE_FILE?.trim() ?: 'docker-compose.yaml'}"
+        COMPOSE_SERVICE = "${params.COMPOSE_SERVICE?.trim() ?: 'web'}"
+        SYNC_COMPOSE_FILE = "${params.SYNC_COMPOSE_FILE}"
         DEPLOY_SSH_KEY = "${params.DEPLOY_SSH_KEY}"
         VITE_API_BASE_URL = "${params.VITE_API_BASE_URL}"
         VITE_AUTH_BASE_URL = "${params.VITE_AUTH_BASE_URL}"
@@ -102,24 +106,39 @@ echo "Push complete."
 set -euo pipefail
 
 SSH=(ssh -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=15)
+SCP=(scp -o StrictHostKeyChecking=no -o BatchMode=yes)
 if [ -n "${SSH_AUTH_SOCK:-}" ] && ssh-add -l >/dev/null 2>&1; then
   echo "SSH: using agent"
 elif [ -f "${DEPLOY_SSH_KEY}" ]; then
   echo "SSH: using key ${DEPLOY_SSH_KEY}"
   SSH+=(-i "${DEPLOY_SSH_KEY}")
+  SCP+=(-i "${DEPLOY_SSH_KEY}")
 else
   echo "ERROR: no SSH key at ${DEPLOY_SSH_KEY} and no ssh-agent key"
   exit 1
 fi
 
 TARGET="${DEPLOY_USER}@${DEPLOY_HOST}"
-echo "Deploy web → ${TARGET}:${DEPLOY_DIR} (IMAGE_TAG=${IMAGE_TAG})"
+echo "Deploy web → ${TARGET}:${DEPLOY_DIR} (IMAGE_TAG=${IMAGE_TAG} service=${COMPOSE_SERVICE})"
+
+"${SSH[@]}" "$TARGET" "mkdir -p '${DEPLOY_DIR}'"
+
+if [ "${SYNC_COMPOSE_FILE}" = "true" ]; then
+  COMPOSE_SRC="${WORKSPACE:-.}/deploy/docker-compose.yaml"
+  if [ ! -f "$COMPOSE_SRC" ]; then
+    echo "ERROR: missing $COMPOSE_SRC — cannot SYNC_COMPOSE_FILE"
+    exit 1
+  fi
+  echo "Uploading compose → ${DEPLOY_DIR}/${COMPOSE_FILE}"
+  "${SCP[@]}" "$COMPOSE_SRC" "${TARGET}:${DEPLOY_DIR}/${COMPOSE_FILE}"
+fi
 
 "${SSH[@]}" "$TARGET" env \
   DEPLOY_DIR="${DEPLOY_DIR}" \
   IMAGE_TAG="${IMAGE_TAG}" \
   DOCKER_REPO="${DOCKER_REPO}" \
   COMPOSE_FILE="${COMPOSE_FILE}" \
+  COMPOSE_SERVICE="${COMPOSE_SERVICE}" \
   bash -s <<'REMOTE'
 set -e
 cd "$DEPLOY_DIR"
@@ -131,8 +150,23 @@ if docker compose version >/dev/null 2>&1; then
 else
   COMPOSE="docker-compose"
 fi
-$COMPOSE -f "$COMPOSE_FILE" pull web
-$COMPOSE -f "$COMPOSE_FILE" up -d web
+
+if [ ! -f "$COMPOSE_FILE" ]; then
+  echo "ERROR: $COMPOSE_FILE not found in $DEPLOY_DIR"
+  exit 1
+fi
+
+SERVICES=$($COMPOSE -f "$COMPOSE_FILE" config --services 2>/dev/null || true)
+echo "Compose services: ${SERVICES:-<none>}"
+
+if echo "$SERVICES" | grep -Fxq "$COMPOSE_SERVICE"; then
+  $COMPOSE -f "$COMPOSE_FILE" pull "$COMPOSE_SERVICE"
+  $COMPOSE -f "$COMPOSE_FILE" up -d "$COMPOSE_SERVICE"
+else
+  echo "ERROR: service '$COMPOSE_SERVICE' not in $COMPOSE_FILE"
+  echo "Set Jenkins parameter COMPOSE_SERVICE to one of the names above, or enable SYNC_COMPOSE_FILE."
+  exit 1
+fi
 $COMPOSE -f "$COMPOSE_FILE" ps
 REMOTE
 '''
