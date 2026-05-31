@@ -8,7 +8,6 @@ const TOKEN_KEY = "hayyah_token";
 export const KEYCLOAK_TOKEN_PATH = "/auth/realms/hayyah/protocol/openid-connect/token";
 const DEFAULT_KEYCLOAK_ORIGIN = "https://hayyah.me";
 
-const TOKEN_URL = resolveTokenUrl();
 const CLIENT_ID = "web_client";
 const CLIENT_SECRET = import.meta.env.VITE_CLIENT_SECRET ?? "";
 
@@ -27,6 +26,8 @@ function resolveTokenUrl(): string {
 
   return `${DEFAULT_KEYCLOAK_ORIGIN}${KEYCLOAK_TOKEN_PATH}`;
 }
+
+const TOKEN_URL = resolveTokenUrl();
 
 export interface AuthUser {
   email: string;
