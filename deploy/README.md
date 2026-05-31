@@ -1,6 +1,6 @@
 # Jenkins deploy — Hayyah web (CRM)
 
-## On the server (`DEPLOY_DIR`, default `/hayyah`)
+## On the server (`DEPLOY_DIR`, default `/hayyah/frontend`)
 
 1. Copy [`docker-compose.yaml`](./docker-compose.yaml) to the deploy directory.
 2. Optional `.env`:

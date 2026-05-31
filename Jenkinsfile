@@ -42,7 +42,7 @@ pipeline {
         PUSH_LATEST = "${params.PUSH_LATEST}"
         DEPLOY_HOST = "${params.DEPLOY_HOST}"
         DEPLOY_USER = "${params.DEPLOY_USER}"
-        DEPLOY_DIR = "${params.DEPLOY_DIR?.trim() ?: '/hayyah'}"
+        DEPLOY_DIR = "${params.DEPLOY_DIR?.trim() ?: '/hayyah/frontend'}"
         COMPOSE_FILE = "${params.COMPOSE_FILE?.trim() ?: 'docker-compose.yaml'}"
         COMPOSE_SERVICE = "${params.COMPOSE_SERVICE?.trim() ?: 'web'}"
         SYNC_COMPOSE_FILE = "${params.SYNC_COMPOSE_FILE}"
