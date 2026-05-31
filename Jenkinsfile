@@ -23,7 +23,7 @@ pipeline {
         booleanParam(name: 'PUSH_LATEST', defaultValue: true, description: 'Also push :latest')
         string(name: 'DEPLOY_HOST', defaultValue: '149.102.140.178', description: 'Deploy host')
         string(name: 'DEPLOY_USER', defaultValue: 'root', description: 'SSH user')
-        string(name: 'DEPLOY_DIR', defaultValue: '/hayyah.frontend', description: 'Directory with docker-compose on host')
+        string(name: 'DEPLOY_DIR', defaultValue: '/hayyah/frontend', description: 'Directory with docker-compose on host')
         string(name: 'COMPOSE_FILE', defaultValue: 'docker-compose.yaml', description: 'Compose filename in DEPLOY_DIR')
         string(name: 'COMPOSE_SERVICE', defaultValue: 'web', description: 'Compose service name to pull/up (must exist in compose file)')
         booleanParam(name: 'SYNC_COMPOSE_FILE', defaultValue: true, description: 'Upload deploy/docker-compose.yaml to the server before deploy')
@@ -164,7 +164,8 @@ echo "Compose services: ${SERVICES:-<none>}"
 
 if echo "$SERVICES" | grep -Fxq "$COMPOSE_SERVICE"; then
   $COMPOSE -f "$COMPOSE_FILE" pull "$COMPOSE_SERVICE"
-  $COMPOSE -f "$COMPOSE_FILE" up -d "$COMPOSE_SERVICE"
+  # Replace the same service container (new image tag), drop services removed from compose.
+  $COMPOSE -f "$COMPOSE_FILE" up -d --remove-orphans --force-recreate --no-deps "$COMPOSE_SERVICE"
 else
   echo "ERROR: service '$COMPOSE_SERVICE' not in $COMPOSE_FILE"
   echo "Set Jenkins parameter COMPOSE_SERVICE to one of the names above, or enable SYNC_COMPOSE_FILE."

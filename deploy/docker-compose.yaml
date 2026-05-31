@@ -1,10 +1,16 @@
 # Web-only production compose on the deploy host.
 # Jenkins sets IMAGE_TAG and DOCKER_REPO before `docker compose pull && up -d`.
 # Optional: API_UPSTREAM in .env if nginx should proxy to your API host.
+#
+# `name` + `container_name` keep one stack/container identity across deploys
+# (compose still recreates the container when the image tag changes).
+
+name: hayyah
 
 services:
   web:
     image: ${DOCKER_REPO}:${IMAGE_TAG}
+    container_name: hayyah-web
     platform: linux/amd64
     restart: unless-stopped
     ports:
