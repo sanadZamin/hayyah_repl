@@ -11,7 +11,7 @@ services:
     image: ${DOCKER_REPO}:${IMAGE_TAG}   # not :latest — Jenkins writes .env with BUILD_NUMBER
 ```
 
-Jenkins creates `/hayyah/frontend/.env` on each deploy with `IMAGE_TAG` and `DOCKER_REPO`. If your file hardcodes `:latest`, deploy will fail until you switch to the variables above.
+Jenkins creates `/hayyah/frontend/.env` on each deploy with `IMAGE_TAG` and `DOCKER_REPO`. If the compose file still has `image: ...:latest`, the pipeline **auto-patches** that line to `image: ${DOCKER_REPO}:${IMAGE_TAG}` (backup: `docker-compose.yaml.bak.jenkins`).
 
 3. Optional `.env` (e.g. `API_UPSTREAM`, secrets).
 4. Set Jenkins **COMPOSE_FILE** / **COMPOSE_SERVICE** to match your file (defaults: `docker-compose.yaml`, service `web`).

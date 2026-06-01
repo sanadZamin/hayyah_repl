@@ -216,16 +216,38 @@ fi
 mv .env.jenkins .env
 echo "Updated .env (DOCKER_REPO=${DOCKER_REPO} IMAGE_TAG=${IMAGE_TAG})"
 
-RESOLVED_IMAGE=$("${COMPOSE[@]}" -f "$COMPOSE_FILE" config 2>/dev/null \
-  | awk -v svc="$COMPOSE_SERVICE" '
-    $0 ~ "^  "svc":" { in_svc=1; next }
-    in_svc && /^  [a-zA-Z0-9_.-]+:/ { exit }
-    in_svc && /^    image:/ { sub(/^    image: */, ""); print; exit }
-  ' || true)
+compose_resolved_image() {
+  "${COMPOSE[@]}" -f "$COMPOSE_FILE" config 2>/dev/null \
+    | awk -v svc="$COMPOSE_SERVICE" '
+      $0 ~ "^  "svc":" { in_svc=1; next }
+      in_svc && /^  [a-zA-Z0-9_.-]+:/ { exit }
+      in_svc && /^    image:/ { sub(/^    image: */, ""); print; exit }
+    ' || true
+}
+
+patch_compose_image_to_build_tag() {
+  local tmp="${COMPOSE_FILE}.jenkins.tmp"
+  cp -a "$COMPOSE_FILE" "${COMPOSE_FILE}.bak.jenkins"
+  awk -v svc="$COMPOSE_SERVICE" '
+    BEGIN { in_svc=0 }
+    $0 ~ "^  " svc ":" { in_svc=1 }
+    in_svc && /^  [a-zA-Z0-9_.-]+:/ && $0 !~ "^  " svc ":" { in_svc=0 }
+    in_svc && /^    image:/ { print "    image: ${DOCKER_REPO}:${IMAGE_TAG}"; in_svc=0; next }
+    { print }
+  ' "$COMPOSE_FILE" > "$tmp" && mv "$tmp" "$COMPOSE_FILE"
+  echo "Patched ${COMPOSE_FILE} (${COMPOSE_SERVICE}.image → \${DOCKER_REPO}:\${IMAGE_TAG})"
+}
+
+RESOLVED_IMAGE=$(compose_resolved_image)
 echo "Compose resolved image for ${COMPOSE_SERVICE}: ${RESOLVED_IMAGE:-<unknown>}"
 if [ -z "${RESOLVED_IMAGE:-}" ] || ! echo "${RESOLVED_IMAGE}" | grep -Fq ":${IMAGE_TAG}"; then
-  echo "ERROR: ${COMPOSE_FILE} must use image: \${DOCKER_REPO}:\${IMAGE_TAG}"
-  echo "       not a hardcoded tag like :latest. Fix /hayyah/frontend/docker-compose.yaml on the server."
+  echo "WARN: compose not using build tag :${IMAGE_TAG} (often hardcoded :latest) — patching..."
+  patch_compose_image_to_build_tag
+  RESOLVED_IMAGE=$(compose_resolved_image)
+  echo "Compose resolved image after patch: ${RESOLVED_IMAGE:-<unknown>}"
+fi
+if [ -z "${RESOLVED_IMAGE:-}" ] || ! echo "${RESOLVED_IMAGE}" | grep -Fq ":${IMAGE_TAG}"; then
+  echo "ERROR: ${COMPOSE_FILE} must resolve to ${DOCKER_REPO}:${IMAGE_TAG}"
   exit 1
 fi
 
