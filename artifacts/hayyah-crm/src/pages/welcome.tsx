@@ -30,7 +30,7 @@ const HERO_BG =
 
 const COLLECTION = [
   {
-    title: "Artisan Cleaning",
+    title: "Artisan Cleaning3",
     desc: "Editorial-grade care for every surface, tailored to your home.",
     img: "https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=720&q=80",
   },

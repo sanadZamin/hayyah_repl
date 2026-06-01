@@ -135,15 +135,13 @@ echo "Deploy web → ${TARGET}:${DEPLOY_DIR} (IMAGE_TAG=${IMAGE_TAG} service=${C
 echo "Using existing compose on server (not uploaded from Jenkins)"
 
 ssh_with_retry() {
-  local attempt max=5 delay=5
+  local attempt max=5 delay=5 code=255
   for attempt in $(seq 1 "$max"); do
-    if "${SSH[@]}" "$@"; then
-      return 0
-    fi
+    "${SSH[@]}" "$@" && return 0
     code=$?
-    echo "SSH attempt ${attempt}/${max} failed (exit ${code})"
+    echo "SSH/deploy attempt ${attempt}/${max} failed (exit ${code})"
     if [ "$attempt" -lt "$max" ]; then
-      echo "Retrying in ${delay}s (connection reset often means fail2ban, firewall, or sshd load)..."
+      echo "Retrying in ${delay}s..."
       sleep "$delay"
       delay=$((delay * 2))
     fi
@@ -211,13 +209,12 @@ echo "Top-level compose project name from file:"
 grep -E '^[[:space:]]*name:' "$COMPOSE_FILE" 2>/dev/null || echo "(no name: key — project is -p ${COMPOSE_PROJECT_NAME})"
 
 if echo "$SERVICES" | grep -Fxq "$COMPOSE_SERVICE"; then
-  # Fixed container_name in compose (e.g. hayyah_frontend) blocks up if an old container
-  # still exists under a different compose project (e.g. hayyah vs hayyah-web).
   FIXED_NAME=$(
     grep -A40 "^[[:space:]]*${COMPOSE_SERVICE}:" "$COMPOSE_FILE" \
       | grep -m1 'container_name:' \
       | sed -E 's/^[[:space:]]*container_name:[[:space:]]*//' \
-      | tr -d "\"'" \
+      | tr -d '"' \
+      | tr -d "'" \
       | xargs \
       || true
   )
@@ -237,8 +234,22 @@ if echo "$SERVICES" | grep -Fxq "$COMPOSE_SERVICE"; then
   echo "Pulling and recreating service=${COMPOSE_SERVICE} only (no --remove-orphans)"
   "${COMPOSE[@]}" -f "$COMPOSE_FILE" pull "$COMPOSE_SERVICE"
   "${COMPOSE[@]}" -f "$COMPOSE_FILE" rm -sf "$COMPOSE_SERVICE" 2>/dev/null || true
-  # --no-deps: do not start/stop linked services. No --remove-orphans (that deletes other containers in this project).
   "${COMPOSE[@]}" -f "$COMPOSE_FILE" up -d --force-recreate --no-deps "$COMPOSE_SERVICE"
+
+  EXPECTED_IMAGE="${DOCKER_REPO}:${IMAGE_TAG}"
+  if [ -n "${FIXED_NAME:-}" ]; then
+    RUNNING_IMAGE=$(docker inspect -f '{{.Config.Image}}' "$FIXED_NAME" 2>/dev/null || true)
+  else
+    RUNNING_CID=$("${COMPOSE[@]}" -f "$COMPOSE_FILE" ps -q "$COMPOSE_SERVICE" 2>/dev/null | head -1 || true)
+    RUNNING_IMAGE=$([ -n "${RUNNING_CID:-}" ] && docker inspect -f '{{.Config.Image}}' "$RUNNING_CID" 2>/dev/null || true)
+  fi
+  echo "Expected image: ${EXPECTED_IMAGE}"
+  echo "Running image:  ${RUNNING_IMAGE:-<none>}"
+  if [ -z "${RUNNING_IMAGE:-}" ] || ! echo "${RUNNING_IMAGE}" | grep -Fq ":${IMAGE_TAG}"; then
+    echo "ERROR: container is not running ${EXPECTED_IMAGE}"
+    exit 1
+  fi
+  echo "Deploy verified: ${IMAGE_TAG}"
 else
   echo "ERROR: service '$COMPOSE_SERVICE' not in $COMPOSE_FILE"
   echo "Set Jenkins parameter COMPOSE_SERVICE to one of the service names listed above."
@@ -248,6 +259,7 @@ echo "=== After deploy ==="
 compose_ps_project
 compose_ps_all
 REMOTE
+|| exit 1
 '''
                     }
                     if (credId) {
