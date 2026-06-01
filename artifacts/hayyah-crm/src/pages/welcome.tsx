@@ -235,7 +235,7 @@ export default function WelcomeLanding() {
             <div className="mb-12 text-center">
               <p className="text-xs font-bold uppercase tracking-[0.25em] text-slate-500">The Collection</p>
               <h2 className="mt-3 text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl" style={{ fontFamily: serif }}>
-                Services, composed for you
+                Pick what fits your home
               </h2>
               <p className="mx-auto mt-3 max-w-2xl text-sm text-slate-600 sm:text-base">
                 Choose the mix that fits your home — each category is crafted to expand or simplify as your needs change.
