@@ -35,7 +35,7 @@ pipeline {
         string(name: 'VITE_AUTH_REFRESH_URL', defaultValue: '', description: 'Web build: refresh URL (optional)')
         string(name: 'KEYCLOAK_CLIENT_SECRET_CRED_ID', defaultValue: 'hayyah-keycloak-client-secret', description: 'Jenkins Secret text credential ID (web_client secret for VITE_CLIENT_SECRET build-arg)')
         booleanParam(name: 'PRUNE_DOCKER_IMAGES', defaultValue: true, description: 'After deploy: remove old unused hayyah-web build tags on the server')
-        string(name: 'KEEP_WEB_IMAGE_TAGS', defaultValue: '2', description: 'How many numbered build tags to keep (plus :latest and the running tag)')
+        string(name: 'KEEP_WEB_IMAGE_TAGS', defaultValue: '3', description: 'How many numbered build tags to keep (plus :latest and the running tag)')
 
     }
 
@@ -313,7 +313,23 @@ if echo "$SERVICES" | grep -Fxq "$COMPOSE_SERVICE"; then
     KEEP_N=$(echo "${KEEP_WEB_IMAGE_TAGS:-5}" | tr -cd '0-9')
     [ -n "$KEEP_N" ] || KEEP_N=5
     echo "=== Docker image cleanup (${DOCKER_REPO}, keep ${KEEP_N} newest numeric tags) ==="
+
+    image_used_by_container() {
+      docker ps -qa --filter "ancestor=$1" 2>/dev/null | grep -q .
+    }
+
+    remove_ref_if_unused() {
+      local ref="$1"
+      if image_used_by_container "$ref"; then
+        echo "Keeping ${ref} (used by a container)"
+        return 0
+      fi
+      echo "Removing ${ref}"
+      docker rmi "$ref" 2>/dev/null || true
+    }
+
     docker image prune -f >/dev/null 2>&1 || true
+
     TAGS=$(
       docker images "${DOCKER_REPO}" --format '{{.Tag}}' 2>/dev/null \
         | grep -E '^[0-9]+$' \
@@ -328,14 +344,25 @@ if echo "$SERVICES" | grep -Fxq "$COMPOSE_SERVICE"; then
         echo "Keeping ${DOCKER_REPO}:${tag}"
         continue
       fi
-      if docker ps -qa --filter "ancestor=${DOCKER_REPO}:${tag}" 2>/dev/null | grep -q .; then
-        echo "Keeping ${DOCKER_REPO}:${tag} (used by a container)"
-        continue
-      fi
-      echo "Removing ${DOCKER_REPO}:${tag}"
-      docker rmi "${DOCKER_REPO}:${tag}" 2>/dev/null || true
+      remove_ref_if_unused "${DOCKER_REPO}:${tag}"
     done
+
+    # Untagged layers left after retagging (repository shows <none>)
+    while IFS="$(printf '\t')" read -r img_id img_tag; do
+      [ "${img_tag:-}" = "<none>" ] || continue
+      if image_used_by_container "$img_id"; then
+        echo "Keeping ${DOCKER_REPO} <none> ${img_id} (used by a container)"
+      else
+        echo "Removing ${DOCKER_REPO} <none> ${img_id}"
+        docker rmi "$img_id" 2>/dev/null || true
+      fi
+    done < <(docker images "${DOCKER_REPO}" --format '{{.ID}}\t{{.Tag}}' 2>/dev/null || true)
+
+    remove_ref_if_unused "${DOCKER_REPO}:latest"
+
     docker image prune -f >/dev/null 2>&1 || true
+    echo "Remaining ${DOCKER_REPO} images:"
+    docker images "${DOCKER_REPO}" 2>/dev/null || true
     echo "Docker disk usage:"
     docker system df 2>/dev/null || true
   }

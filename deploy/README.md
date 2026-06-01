@@ -63,7 +63,7 @@ After a successful deploy, Jenkins can prune unused images (job params):
 - **PRUNE_DOCKER_IMAGES** (default on) — runs cleanup on the deploy host
 - **KEEP_WEB_IMAGE_TAGS** (default `5`) — keeps the 5 newest numeric build tags, plus the running tag and any tag still used by a container
 
-It runs `docker image prune -f` (dangling layers) and removes old `altshiftcreative/hayyah-web:<build>` tags beyond the keep count.
+It runs `docker image prune -f`, removes old numeric build tags beyond the keep count, removes **`latest`** if no container uses it, and removes **`<none>`** (untagged) layers for that repo.
 
 **Manual cleanup on the server** (review before running):
 
