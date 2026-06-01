@@ -113,7 +113,13 @@ echo "Push complete."
                         sh '''#!/usr/bin/env bash
 set -euo pipefail
 
-SSH=(ssh -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=15)
+SSH=(ssh
+  -o StrictHostKeyChecking=no
+  -o BatchMode=yes
+  -o ConnectTimeout=30
+  -o ServerAliveInterval=15
+  -o ServerAliveCountMax=3
+)
 if [ -n "${SSH_AUTH_SOCK:-}" ] && ssh-add -l >/dev/null 2>&1; then
   echo "SSH: using agent"
 elif [ -f "${DEPLOY_SSH_KEY}" ]; then
@@ -128,7 +134,26 @@ TARGET="${DEPLOY_USER}@${DEPLOY_HOST}"
 echo "Deploy web → ${TARGET}:${DEPLOY_DIR} (IMAGE_TAG=${IMAGE_TAG} service=${COMPOSE_SERVICE})"
 echo "Using existing compose on server (not uploaded from Jenkins)"
 
-"${SSH[@]}" "$TARGET" env \
+ssh_with_retry() {
+  local attempt max=5 delay=5
+  for attempt in $(seq 1 "$max"); do
+    if "${SSH[@]}" "$@"; then
+      return 0
+    fi
+    code=$?
+    echo "SSH attempt ${attempt}/${max} failed (exit ${code})"
+    if [ "$attempt" -lt "$max" ]; then
+      echo "Retrying in ${delay}s (connection reset often means fail2ban, firewall, or sshd load)..."
+      sleep "$delay"
+      delay=$((delay * 2))
+    fi
+  done
+  echo "ERROR: SSH to ${TARGET} failed after ${max} attempts."
+  echo "From the Jenkins agent run: ssh -vvv -i ${DEPLOY_SSH_KEY:-<agent-key>} ${TARGET} true"
+  return "$code"
+}
+
+ssh_with_retry "$TARGET" env \
   DEPLOY_DIR="${DEPLOY_DIR}" \
   IMAGE_TAG="${IMAGE_TAG}" \
   DOCKER_REPO="${DOCKER_REPO}" \

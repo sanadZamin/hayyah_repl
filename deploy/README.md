@@ -65,3 +65,35 @@ docker compose -p hayyah-web -f docker-compose.yaml up -d web
 ```
 
 **Ongoing:** the pipeline removes a stale `container_name` when it belongs to a different compose project, then runs `compose rm` + `up`. Align `name:` / `COMPOSE_PROJECT_NAME` with how you run the stack, or drop `container_name` and let Compose assign names (e.g. `hayyah-web-web-1`).
+
+## `kex_exchange_identification: read: Connection reset by peer`
+
+SSH never reached deploy — the **server closed port 22** during the handshake. This is not a Docker/compose issue.
+
+**Check from the Jenkins machine** (same host that runs the pipeline):
+
+```bash
+ssh -vvv -i /var/jenkins_home/.ssh/id_deploy root@149.102.140.178 true
+```
+
+**On the deploy server** (console / another SSH session):
+
+```bash
+systemctl status ssh
+journalctl -u ssh -n 50 --no-pager
+fail2ban-client status sshd 2>/dev/null || true
+ss -tn state established '( sport = :22 )'
+grep -E 'MaxStartups|AllowUsers|DenyUsers' /etc/ssh/sshd_config
+```
+
+**Common causes**
+
+| Cause | What to do |
+|--------|------------|
+| **fail2ban** blocked Jenkins IP | Unban: `fail2ban-client set sshd unbanip <jenkins-ip>`; whitelist Jenkins in jail |
+| **Firewall / security group** | Allow Jenkins agent public IP on TCP 22 |
+| **sshd overload** (`MaxStartups`) | Raise `MaxStartups` in `sshd_config`, restart sshd |
+| **Server reboot / sshd down** | `systemctl restart ssh` |
+| **Wrong host / routing** | Confirm `DEPLOY_HOST` and that the box is up |
+
+After SSH works manually from Jenkins, re-run the pipeline. The Jenkinsfile retries SSH up to 5 times with backoff for transient resets.
