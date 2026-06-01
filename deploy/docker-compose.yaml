@@ -5,10 +5,10 @@
 # image build time on Jenkins (Secret text credential). Login hits Keycloak via /auth/ proxy.
 # Optional: API_UPSTREAM in .env if nginx should proxy to your API host.
 #
-# `name` + `container_name` keep one stack/container identity across deploys
-# (compose still recreates the container when the image tag changes).
+# `name` must differ from your main stack (API/Keycloak). Use hayyah-web, not hayyah.
+# Jenkins passes -p hayyah-web (COMPOSE_PROJECT_NAME).
 
-name: hayyah
+name: hayyah-web
 
 services:
   web:

@@ -26,6 +26,7 @@ pipeline {
         string(name: 'DEPLOY_DIR', defaultValue: '/hayyah/frontend', description: 'Directory with docker-compose on host')
         string(name: 'COMPOSE_FILE', defaultValue: 'docker-compose.yaml', description: 'Compose filename in DEPLOY_DIR')
         string(name: 'COMPOSE_SERVICE', defaultValue: 'web', description: 'Compose service name to pull/up (must exist in server compose file)')
+        string(name: 'COMPOSE_PROJECT_NAME', defaultValue: 'hayyah-web', description: 'Compose project name (-p). Must not match your API/Keycloak stack project (e.g. hayyah)')
         string(name: 'DEPLOY_SSH_CREDENTIALS_ID', defaultValue: '', description: 'Optional Jenkins SSH credential ID')
         string(name: 'DEPLOY_SSH_KEY', defaultValue: '/var/jenkins_home/.ssh/id_deploy', description: 'SSH private key file (if no credential ID)')
         string(name: 'VITE_API_BASE_URL', defaultValue: 'https://hayyah.me', description: 'Web build: API origin')
@@ -46,6 +47,7 @@ pipeline {
         DEPLOY_DIR = "${params.DEPLOY_DIR?.trim() ?: '/hayyah/frontend'}"
         COMPOSE_FILE = "${params.COMPOSE_FILE?.trim() ?: 'docker-compose.yaml'}"
         COMPOSE_SERVICE = "${params.COMPOSE_SERVICE?.trim() ?: 'web'}"
+        COMPOSE_PROJECT_NAME = "${params.COMPOSE_PROJECT_NAME?.trim() ?: 'hayyah-web'}"
         DEPLOY_SSH_KEY = "${params.DEPLOY_SSH_KEY}"
         VITE_API_BASE_URL = "${params.VITE_API_BASE_URL}"
         VITE_AUTH_BASE_URL = "${params.VITE_AUTH_BASE_URL}"
@@ -132,6 +134,7 @@ echo "Using existing compose on server (not uploaded from Jenkins)"
   DOCKER_REPO="${DOCKER_REPO}" \
   COMPOSE_FILE="${COMPOSE_FILE}" \
   COMPOSE_SERVICE="${COMPOSE_SERVICE}" \
+  COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME}" \
   bash -s <<'REMOTE'
 set -e
 echo "cd ${DEPLOY_DIR}"
@@ -140,12 +143,26 @@ echo "Deploy directory: $(pwd)"
 ls -la
 export IMAGE_TAG="$IMAGE_TAG"
 export DOCKER_REPO="$DOCKER_REPO"
-echo "IMAGE_TAG=${IMAGE_TAG} DOCKER_REPO=${DOCKER_REPO} COMPOSE_FILE=${COMPOSE_FILE}"
+export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-hayyah-web}"
+echo "IMAGE_TAG=${IMAGE_TAG} DOCKER_REPO=${DOCKER_REPO} COMPOSE_FILE=${COMPOSE_FILE} COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}"
 if docker compose version >/dev/null 2>&1; then
-  COMPOSE="docker compose"
+  COMPOSE=(docker compose -p "$COMPOSE_PROJECT_NAME")
 else
-  COMPOSE="docker-compose"
+  COMPOSE=(docker-compose -p "$COMPOSE_PROJECT_NAME")
 fi
+
+compose_ps_all() {
+  echo "=== docker ps -a (all containers on host) ==="
+  docker ps -a --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}' || true
+}
+
+compose_ps_project() {
+  echo "=== compose ps (project ${COMPOSE_PROJECT_NAME} only) ==="
+  "${COMPOSE[@]}" -f "$COMPOSE_FILE" ps -a || true
+}
+
+compose_ps_all
+compose_ps_project
 
 if [ ! -f "$COMPOSE_FILE" ]; then
   if [ -f docker-compose.yml ] && [ "$COMPOSE_FILE" != docker-compose.yml ]; then
@@ -163,19 +180,24 @@ if [ ! -f "$COMPOSE_FILE" ]; then
 fi
 echo "Using server compose file: $(pwd)/$COMPOSE_FILE"
 
-SERVICES=$($COMPOSE -f "$COMPOSE_FILE" config --services 2>/dev/null || true)
-echo "Compose services: ${SERVICES:-<none>}"
+SERVICES=$("${COMPOSE[@]}" -f "$COMPOSE_FILE" config --services 2>/dev/null || true)
+echo "Compose services in file: ${SERVICES:-<none>}"
+echo "Top-level compose project name from file:"
+grep -E '^[[:space:]]*name:' "$COMPOSE_FILE" 2>/dev/null || echo "(no name: key — project is -p ${COMPOSE_PROJECT_NAME})"
 
 if echo "$SERVICES" | grep -Fxq "$COMPOSE_SERVICE"; then
-  $COMPOSE -f "$COMPOSE_FILE" pull "$COMPOSE_SERVICE"
-  # Replace the same service container (new image tag), drop services removed from compose.
-  $COMPOSE -f "$COMPOSE_FILE" up -d --remove-orphans --force-recreate --no-deps "$COMPOSE_SERVICE"
+  echo "Pulling and recreating service=${COMPOSE_SERVICE} only (no --remove-orphans)"
+  "${COMPOSE[@]}" -f "$COMPOSE_FILE" pull "$COMPOSE_SERVICE"
+  # --no-deps: do not start/stop linked services. No --remove-orphans (that deletes other containers in this project).
+  "${COMPOSE[@]}" -f "$COMPOSE_FILE" up -d --force-recreate --no-deps "$COMPOSE_SERVICE"
 else
   echo "ERROR: service '$COMPOSE_SERVICE' not in $COMPOSE_FILE"
   echo "Set Jenkins parameter COMPOSE_SERVICE to one of the service names listed above."
   exit 1
 fi
-$COMPOSE -f "$COMPOSE_FILE" ps
+echo "=== After deploy ==="
+compose_ps_project
+compose_ps_all
 REMOTE
 '''
                     }
