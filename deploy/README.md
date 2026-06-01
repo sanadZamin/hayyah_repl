@@ -56,6 +56,28 @@ docker inspect -f '{{.Name}} {{index .Config.Labels "com.docker.compose.project"
 
 **If containers still disappear:** check whether the compose file in `DEPLOY_DIR` still defines API/DB services, port conflicts (`88:80`), or a host cron doing `docker prune`.
 
+## Old images on the server
+
+After a successful deploy, Jenkins can prune unused images (job params):
+
+- **PRUNE_DOCKER_IMAGES** (default on) — runs cleanup on the deploy host
+- **KEEP_WEB_IMAGE_TAGS** (default `5`) — keeps the 5 newest numeric build tags, plus the running tag and any tag still used by a container
+
+It runs `docker image prune -f` (dangling layers) and removes old `altshiftcreative/hayyah-web:<build>` tags beyond the keep count.
+
+**Manual cleanup on the server** (review before running):
+
+```bash
+# Safe: dangling layers only
+docker image prune -f
+
+# Remove unused images for hayyah-web only (example: delete tags 1–15, keep 16+)
+docker images altshiftcreative/hayyah-web --format '{{.Tag}}' | grep -E '^[0-9]+$' | sort -n
+
+# Aggressive: ALL unused images on the host (can remove cached API/DB images too)
+docker image prune -af
+```
+
 ## `container name "/hayyah_frontend" is already in use`
 
 Your server compose sets `container_name: hayyah_frontend`. An **old** container with that name still exists (often from project `hayyah` or `hayyah_frontend` while Jenkins now uses `-p hayyah-web`). Compose cannot create a second container with the same fixed name.

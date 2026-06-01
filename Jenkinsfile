@@ -34,6 +34,8 @@ pipeline {
         string(name: 'VITE_AUTH_TOKEN_URL', defaultValue: '', description: 'Web build: token URL (empty = derive from auth base)')
         string(name: 'VITE_AUTH_REFRESH_URL', defaultValue: '', description: 'Web build: refresh URL (optional)')
         string(name: 'KEYCLOAK_CLIENT_SECRET_CRED_ID', defaultValue: 'hayyah-keycloak-client-secret', description: 'Jenkins Secret text credential ID (web_client secret for VITE_CLIENT_SECRET build-arg)')
+        booleanParam(name: 'PRUNE_DOCKER_IMAGES', defaultValue: true, description: 'After deploy: remove old unused hayyah-web build tags on the server')
+        string(name: 'KEEP_WEB_IMAGE_TAGS', defaultValue: '2', description: 'How many numbered build tags to keep (plus :latest and the running tag)')
 
     }
 
@@ -53,6 +55,8 @@ pipeline {
         VITE_AUTH_BASE_URL = "${params.VITE_AUTH_BASE_URL}"
         VITE_AUTH_TOKEN_URL = "${params.VITE_AUTH_TOKEN_URL}"
         VITE_AUTH_REFRESH_URL = "${params.VITE_AUTH_REFRESH_URL}"
+        PRUNE_DOCKER_IMAGES = "${params.PRUNE_DOCKER_IMAGES}"
+        KEEP_WEB_IMAGE_TAGS = "${params.KEEP_WEB_IMAGE_TAGS}"
     }
 
     stages {
@@ -158,6 +162,8 @@ if ! ssh_with_retry "$TARGET" env \
   COMPOSE_FILE="${COMPOSE_FILE}" \
   COMPOSE_SERVICE="${COMPOSE_SERVICE}" \
   COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME}" \
+  PRUNE_DOCKER_IMAGES="${PRUNE_DOCKER_IMAGES}" \
+  KEEP_WEB_IMAGE_TAGS="${KEEP_WEB_IMAGE_TAGS}" \
   bash -s <<'REMOTE'
 set -e
 echo "cd ${DEPLOY_DIR}"
@@ -298,6 +304,42 @@ if echo "$SERVICES" | grep -Fxq "$COMPOSE_SERVICE"; then
     exit 1
   fi
   echo "Deploy verified: ${IMAGE_TAG}"
+
+  prune_old_web_images() {
+    case "${PRUNE_DOCKER_IMAGES:-true}" in
+      true|True|TRUE|1|yes|Yes) ;;
+      *) echo "Image prune skipped (PRUNE_DOCKER_IMAGES=${PRUNE_DOCKER_IMAGES})"; return 0 ;;
+    esac
+    KEEP_N=$(echo "${KEEP_WEB_IMAGE_TAGS:-5}" | tr -cd '0-9')
+    [ -n "$KEEP_N" ] || KEEP_N=5
+    echo "=== Docker image cleanup (${DOCKER_REPO}, keep ${KEEP_N} newest numeric tags) ==="
+    docker image prune -f >/dev/null 2>&1 || true
+    TAGS=$(
+      docker images "${DOCKER_REPO}" --format '{{.Tag}}' 2>/dev/null \
+        | grep -E '^[0-9]+$' \
+        | sort -rn \
+        || true
+    )
+    n=0
+    for tag in $TAGS; do
+      n=$((n + 1))
+      [ "$tag" = "$IMAGE_TAG" ] && continue
+      if [ "$n" -le "$KEEP_N" ]; then
+        echo "Keeping ${DOCKER_REPO}:${tag}"
+        continue
+      fi
+      if docker ps -qa --filter "ancestor=${DOCKER_REPO}:${tag}" 2>/dev/null | grep -q .; then
+        echo "Keeping ${DOCKER_REPO}:${tag} (used by a container)"
+        continue
+      fi
+      echo "Removing ${DOCKER_REPO}:${tag}"
+      docker rmi "${DOCKER_REPO}:${tag}" 2>/dev/null || true
+    done
+    docker image prune -f >/dev/null 2>&1 || true
+    echo "Docker disk usage:"
+    docker system df 2>/dev/null || true
+  }
+  prune_old_web_images
 else
   echo "ERROR: service '$COMPOSE_SERVICE' not in $COMPOSE_FILE"
   echo "Set Jenkins parameter COMPOSE_SERVICE to one of the service names listed above."
