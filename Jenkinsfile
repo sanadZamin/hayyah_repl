@@ -151,7 +151,7 @@ ssh_with_retry() {
   return "$code"
 }
 
-ssh_with_retry "$TARGET" env \
+if ! ssh_with_retry "$TARGET" env \
   DEPLOY_DIR="${DEPLOY_DIR}" \
   IMAGE_TAG="${IMAGE_TAG}" \
   DOCKER_REPO="${DOCKER_REPO}" \
@@ -202,6 +202,32 @@ if [ ! -f "$COMPOSE_FILE" ]; then
   fi
 fi
 echo "Using server compose file: $(pwd)/$COMPOSE_FILE"
+
+# Compose substitutes ${DOCKER_REPO} and ${IMAGE_TAG} from .env in this directory.
+if [ -f .env ]; then
+  grep -v '^DOCKER_REPO=' .env | grep -v '^IMAGE_TAG=' > .env.jenkins || true
+else
+  : > .env.jenkins
+fi
+{
+  echo "DOCKER_REPO=${DOCKER_REPO}"
+  echo "IMAGE_TAG=${IMAGE_TAG}"
+} >> .env.jenkins
+mv .env.jenkins .env
+echo "Updated .env (DOCKER_REPO=${DOCKER_REPO} IMAGE_TAG=${IMAGE_TAG})"
+
+RESOLVED_IMAGE=$("${COMPOSE[@]}" -f "$COMPOSE_FILE" config 2>/dev/null \
+  | awk -v svc="$COMPOSE_SERVICE" '
+    $0 ~ "^  "svc":" { in_svc=1; next }
+    in_svc && /^  [a-zA-Z0-9_.-]+:/ { exit }
+    in_svc && /^    image:/ { sub(/^    image: */, ""); print; exit }
+  ' || true)
+echo "Compose resolved image for ${COMPOSE_SERVICE}: ${RESOLVED_IMAGE:-<unknown>}"
+if [ -z "${RESOLVED_IMAGE:-}" ] || ! echo "${RESOLVED_IMAGE}" | grep -Fq ":${IMAGE_TAG}"; then
+  echo "ERROR: ${COMPOSE_FILE} must use image: \${DOCKER_REPO}:\${IMAGE_TAG}"
+  echo "       not a hardcoded tag like :latest. Fix /hayyah/frontend/docker-compose.yaml on the server."
+  exit 1
+fi
 
 SERVICES=$("${COMPOSE[@]}" -f "$COMPOSE_FILE" config --services 2>/dev/null || true)
 echo "Compose services in file: ${SERVICES:-<none>}"
@@ -259,7 +285,9 @@ echo "=== After deploy ==="
 compose_ps_project
 compose_ps_all
 REMOTE
-|| exit 1
+then
+  exit 1
+fi
 '''
                     }
                     if (credId) {

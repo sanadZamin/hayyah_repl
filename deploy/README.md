@@ -6,8 +6,12 @@
 2. The web service image line should use env vars Jenkins exports on deploy:
 
 ```yaml
-image: ${DOCKER_REPO}:${IMAGE_TAG}
+services:
+  web:
+    image: ${DOCKER_REPO}:${IMAGE_TAG}   # not :latest — Jenkins writes .env with BUILD_NUMBER
 ```
+
+Jenkins creates `/hayyah/frontend/.env` on each deploy with `IMAGE_TAG` and `DOCKER_REPO`. If your file hardcodes `:latest`, deploy will fail until you switch to the variables above.
 
 3. Optional `.env` (e.g. `API_UPSTREAM`, secrets).
 4. Set Jenkins **COMPOSE_FILE** / **COMPOSE_SERVICE** to match your file (defaults: `docker-compose.yaml`, service `web`).
