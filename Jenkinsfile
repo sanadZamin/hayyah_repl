@@ -186,8 +186,32 @@ echo "Top-level compose project name from file:"
 grep -E '^[[:space:]]*name:' "$COMPOSE_FILE" 2>/dev/null || echo "(no name: key — project is -p ${COMPOSE_PROJECT_NAME})"
 
 if echo "$SERVICES" | grep -Fxq "$COMPOSE_SERVICE"; then
+  # Fixed container_name in compose (e.g. hayyah_frontend) blocks up if an old container
+  # still exists under a different compose project (e.g. hayyah vs hayyah-web).
+  FIXED_NAME=$(
+    grep -A40 "^[[:space:]]*${COMPOSE_SERVICE}:" "$COMPOSE_FILE" \
+      | grep -m1 'container_name:' \
+      | sed -E 's/^[[:space:]]*container_name:[[:space:]]*//' \
+      | tr -d "\"'" \
+      | xargs \
+      || true
+  )
+  if [ -n "${FIXED_NAME:-}" ]; then
+    echo "compose container_name for ${COMPOSE_SERVICE}: ${FIXED_NAME}"
+    CID=$(docker ps -aq -f "name=^/${FIXED_NAME}$" 2>/dev/null | head -1 || true)
+    if [ -n "${CID:-}" ]; then
+      OLD_PROJECT=$(docker inspect -f '{{index .Config.Labels "com.docker.compose.project"}}' "$CID" 2>/dev/null || echo "")
+      echo "Existing container /${FIXED_NAME} → compose project=${OLD_PROJECT:-<none>} (deploy uses ${COMPOSE_PROJECT_NAME})"
+      if [ "$OLD_PROJECT" != "$COMPOSE_PROJECT_NAME" ]; then
+        echo "Removing /${FIXED_NAME} so deploy can recreate under project ${COMPOSE_PROJECT_NAME}"
+        docker rm -f "$FIXED_NAME"
+      fi
+    fi
+  fi
+
   echo "Pulling and recreating service=${COMPOSE_SERVICE} only (no --remove-orphans)"
   "${COMPOSE[@]}" -f "$COMPOSE_FILE" pull "$COMPOSE_SERVICE"
+  "${COMPOSE[@]}" -f "$COMPOSE_FILE" rm -sf "$COMPOSE_SERVICE" 2>/dev/null || true
   # --no-deps: do not start/stop linked services. No --remove-orphans (that deletes other containers in this project).
   "${COMPOSE[@]}" -f "$COMPOSE_FILE" up -d --force-recreate --no-deps "$COMPOSE_SERVICE"
 else

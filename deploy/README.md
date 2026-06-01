@@ -51,3 +51,17 @@ docker inspect -f '{{.Name}} {{index .Config.Labels "com.docker.compose.project"
 **Compare before/after a Jenkins run:** the Deploy stage logs `docker ps -a` and compose `ps` for project `hayyah-web` only.
 
 **If containers still disappear:** check whether the compose file in `DEPLOY_DIR` still defines API/DB services, port conflicts (`88:80`), or a host cron doing `docker prune`.
+
+## `container name "/hayyah_frontend" is already in use`
+
+Your server compose sets `container_name: hayyah_frontend`. An **old** container with that name still exists (often from project `hayyah` or `hayyah_frontend` while Jenkins now uses `-p hayyah-web`). Compose cannot create a second container with the same fixed name.
+
+**One-time fix on the server:**
+
+```bash
+docker rm -f hayyah_frontend
+cd /hayyah/frontend
+docker compose -p hayyah-web -f docker-compose.yaml up -d web
+```
+
+**Ongoing:** the pipeline removes a stale `container_name` when it belongs to a different compose project, then runs `compose rm` + `up`. Align `name:` / `COMPOSE_PROJECT_NAME` with how you run the stack, or drop `container_name` and let Compose assign names (e.g. `hayyah-web-web-1`).
