@@ -18,6 +18,10 @@ pipeline {
         timestamps()
     }
 
+    triggers {
+        githubPush()
+    }
+
     parameters {
         string(name: 'DOCKER_REPO', defaultValue: 'altshiftcreative/hayyah-web', description: 'Docker Hub image (no tag)')
         booleanParam(name: 'PUSH_LATEST', defaultValue: true, description: 'Also push :latest')
