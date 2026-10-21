@@ -17,6 +17,8 @@ const STATUS_LABELS: Record<string, string> = {
   CANCELLED:   "Cancelled",
 };
 
+
+
 function getStatusColor(status: string) {
   switch (status) {
     case "NEW":         return "bg-sky-100 text-sky-800 dark:bg-sky-500/20 dark:text-sky-400";
