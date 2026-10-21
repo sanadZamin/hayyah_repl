@@ -70,8 +70,6 @@ It runs `docker image prune -f`, removes old numeric build tags beyond the keep 
 ```bash
 # Safe: dangling layers only
 docker image prune -f
-
-
 # Remove unused images for hayyah-web only (example: delete tags 1–15, keep 16+)
 docker images altshiftcreative/hayyah-web --format '{{.Tag}}' | grep -E '^[0-9]+$' | sort -n
 
